@@ -16,7 +16,7 @@ import requests
 import schedule
 import time
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask
 
 # ══════════════════════════════════════════════════════
@@ -415,7 +415,7 @@ def format_signal(sig: dict) -> str:
         f"⚡ MACD  : {sig['macd']}\n"
         f"🔥 ADX   : {sig['adx']}\n"
         f"⏰ TF    : {TIMEFRAME}\n"
-        f"🕐 Time  : {datetime.now().strftime('%H:%M:%S')}\n"
+        f"🕐 Time  : {datetime.now(timezone.utc).strftime('%H:%M:%S')}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📈 [Open Chart on TradingView]({tv_link})"
     )
@@ -424,18 +424,18 @@ def format_signal(sig: dict) -> str:
 #  MARKET HOURS
 # ══════════════════════════════════════════════════════
 def is_market_open() -> bool:
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     if now.weekday() >= 5:
         return False
-    o = now.replace(hour=9,  minute=15, second=0, microsecond=0)
-    c = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    o = now.replace(hour=3,  minute=45, second=0, microsecond=0)
+    c = now.replace(hour=10, minute=0, second=0, microsecond=0)
     return o <= now <= c
 
 # ══════════════════════════════════════════════════════
 #  MAIN SCAN
 # ══════════════════════════════════════════════════════
 def run_scan():
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     if not is_market_open():
         print(f"[{now_str}] ⏸️  Market closed.")
         return
@@ -491,7 +491,7 @@ def run_scan():
         sells   = [s for s in signals_found if s["direction"] == "SELL"]
         watches = [s for s in signals_found if s["entry_type"] == "WATCH_PULLBACK"]
         summary = (
-            f"📋 *SCAN SUMMARY — {datetime.now().strftime('%H:%M')}*\n"
+            f"📋 *SCAN SUMMARY — {datetime.now(timezone.utc).strftime('%H:%M')}*\n"
             f"Scanned : {len(STOCKS)} stocks\n"
             f"🟢 BUY: {len(buys)} | 🔴 SELL: {len(sells)} | 👀 WATCH: {len(watches)}\n\n"
         )
@@ -515,7 +515,7 @@ def market_open_greeting():
         f"Max Loss : Rs.{RISK_AMOUNT} per trade\n"
         f"Leverage : {LEVERAGE}x MIS\n"
         f"Timeframe: {TIMEFRAME} | Every {SCAN_INTERVAL} min\n"
-        f"🕐 {datetime.now().strftime('%H:%M:%S')}"
+        f"🕐 {datetime.now(timezone.utc).strftime('%H:%M:%S')}"
     )
     run_scan()
 
@@ -524,7 +524,7 @@ def market_close_message():
     send_telegram(
         "🔕 *Market Closed — Scanner Paused*\n"
         f"Will resume tomorrow at 9:15 AM IST\n"
-        f"🕐 {datetime.now().strftime('%H:%M:%S')}"
+        f"🕐 {datetime.now(timezone.utc).strftime('%H:%M:%S')}"
     )
 
 # ══════════════════════════════════════════════════════
@@ -544,12 +544,12 @@ def status():
         "timeframe": TIMEFRAME,
         "capital":   CAPITAL,
         "market":    "open" if is_market_open() else "closed",
-        "time":      datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "time":      datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     }
 
 def run_scheduler():
-    schedule.every().day.at("09:15").do(market_open_greeting)
-    schedule.every().day.at("15:30").do(market_close_message)
+    schedule.every().day.at("03:45").do(market_open_greeting)
+    schedule.every().day.at("10:00").do(market_close_message)
     schedule.every(SCAN_INTERVAL).minutes.do(run_scan)
 
     send_telegram(
