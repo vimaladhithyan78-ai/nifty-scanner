@@ -178,13 +178,21 @@ def log_to_sheet(sig: dict):
             return
 
         # Add header if sheet is empty
-        if sheet.row_count <= 1 and not sheet.get_all_values():
+        existing = sheet.get_all_values()
+        if not existing or len(existing) == 0:
             sheet.append_row([
                 "Date", "Time", "Stock", "Direction", "Entry Type",
                 "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
                 "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
                 "Qty", "Capital Needed", "Max Loss"
             ])
+        elif existing[0][0] != "Date":
+            sheet.insert_row([
+                "Date", "Time", "Stock", "Direction", "Entry Type",
+                "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
+                "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
+                "Qty", "Capital Needed", "Max Loss"
+            ], 1)
 
         now = now_ist()
         row = [
