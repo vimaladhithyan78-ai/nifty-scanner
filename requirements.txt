@@ -3,3 +3,5 @@ pandas
 requests
 schedule
 flask
+gspread
+google-auth
