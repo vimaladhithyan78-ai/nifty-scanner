@@ -11,6 +11,10 @@ NIFTY 50 + BANK NIFTY SNIPER SCANNER
 """
 
 import yfinance as yf
+import gspread
+from google.oauth2.service_account import Credentials
+import os
+import json
 import pandas as pd
 import requests
 import schedule
@@ -130,6 +134,77 @@ def calc_position(entry: float, sl: float) -> dict:
         "feasible":       feasible,
         "note":           note,
     }
+
+
+# ══════════════════════════════════════════════════════
+#  GOOGLE SHEETS SETUP
+# ══════════════════════════════════════════════════════
+SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "1x5SyEDwj3OBBQRgblUffhqX2feB0jU4bkCE4SnnvnP4")
+
+def get_sheet():
+    try:
+        creds_dict = {
+            "type": "service_account",
+            "project_id":     os.environ.get("GOOGLE_PROJECT_ID", ""),
+            "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID", ""),
+            "private_key":    os.environ.get("GOOGLE_PRIVATE_KEY", "").replace("\\n", "\n"),
+            "client_email":   os.environ.get("GOOGLE_CLIENT_EMAIL", ""),
+            "client_id":      os.environ.get("GOOGLE_CLIENT_ID", ""),
+            "auth_uri":       "https://accounts.google.com/o/oauth2/auth",
+            "token_uri":      "https://oauth2.googleapis.com/token",
+        }
+        scopes = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds  = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        sheet  = client.open_by_key(SHEET_ID).sheet1
+        return sheet
+    except Exception as e:
+        print(f"  ❌ Google Sheets error: {e}")
+        return None
+
+def log_to_sheet(sig: dict):
+    try:
+        sheet = get_sheet()
+        if sheet is None:
+            return
+
+        # Add header if sheet is empty
+        if sheet.row_count <= 1 and not sheet.get_all_values():
+            sheet.append_row([
+                "Date", "Time", "Stock", "Direction", "Entry Type",
+                "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
+                "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
+                "Qty", "Capital Needed", "Max Loss"
+            ])
+
+        now = datetime.now(timezone.utc)
+        row = [
+            now.strftime("%d-%b-%Y"),
+            now.strftime("%H:%M:%S"),
+            sig["name"],
+            sig["direction"],
+            sig["entry_type"],
+            sig["price"],
+            sig["sl"],
+            sig["tp1"],
+            sig["tp2"],
+            sig["tp3"],
+            sig["tp4"],
+            sig["tp5"],
+            f"{sig['score']}/7",
+            sig["bias"],
+            sig["rsi"],
+            sig["adx"],
+            sig["vwap"],
+            sig["macd"],
+            sig["qty"],
+            sig["cap_needed"],
+            sig["max_loss"],
+        ]
+        sheet.append_row(row)
+        print("  ✅ Logged to Google Sheets!")
+    except Exception as e:
+        print(f"  ❌ Sheet log error: {e}")
 
 # ══════════════════════════════════════════════════════
 #  ALERT MEMORY
@@ -468,6 +543,7 @@ def run_scan():
                     print(f"👀 WATCH {direction}")
                     signals_found.append(result)
                     send_telegram(format_signal(result))
+                    log_to_sheet(result)
                     time.sleep(1)
                 else:
                     print("⏭️")
@@ -480,6 +556,7 @@ def run_scan():
                 print(f"🚨 {entry_type} {direction}! {result['score']}/7")
                 signals_found.append(result)
                 send_telegram(format_signal(result))
+                log_to_sheet(result)
                 time.sleep(1)
             else:
                 print("⏭️")
