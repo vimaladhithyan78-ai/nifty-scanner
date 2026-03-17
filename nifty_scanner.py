@@ -35,8 +35,8 @@ def now_ist():
 # ══════════════════════════════════════════════════════
 #  TELEGRAM
 # ══════════════════════════════════════════════════════
-TELEGRAM_BOT_TOKEN = "8635343116:AAH2XYb1JQbOqSW5iS4ZVG0hY3oKKk_dLFo"
-TELEGRAM_CHAT_ID   = "2071169564"
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 # ══════════════════════════════════════════════════════
 #  CAPITAL & RISK
