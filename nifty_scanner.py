@@ -306,15 +306,34 @@ def calc_adx(df, period=14):
 # ══════════════════════════════════════════════════════
 def scan_stock(name: str, ticker: str):
     try:
-        df = yf.download(ticker, period=PERIOD, interval=TIMEFRAME,
-                         progress=False, auto_adjust=True)
+        # Retry up to 3 times if rate limited
+        df = None
+        for attempt in range(3):
+            try:
+                df = yf.download(ticker, period=PERIOD, interval=TIMEFRAME,
+                                 progress=False, auto_adjust=True)
+                if df is not None and len(df) >= 30:
+                    break
+                time.sleep(2)
+            except Exception:
+                time.sleep(3)
         if df is None or len(df) < 30:
             return None
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
-        df5 = yf.download(ticker, period="2d", interval="5m",
-                          progress=False, auto_adjust=True)
+        df5 = None
+        for attempt in range(3):
+            try:
+                df5 = yf.download(ticker, period="2d", interval="5m",
+                                  progress=False, auto_adjust=True)
+                if df5 is not None and len(df5) >= 14:
+                    break
+                time.sleep(2)
+            except Exception:
+                time.sleep(3)
+        if df5 is None:
+            df5 = pd.DataFrame()
         if isinstance(df5.columns, pd.MultiIndex):
             df5.columns = df5.columns.get_level_values(0)
 
@@ -558,6 +577,7 @@ def run_scan():
 
     for name, ticker in STOCKS.items():
         print(f"  {name}...", end=" ", flush=True)
+        time.sleep(1)  # delay to avoid Yahoo Finance rate limiting
         result = scan_stock(name, ticker)
 
         if result:
