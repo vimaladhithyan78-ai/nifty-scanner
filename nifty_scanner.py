@@ -228,11 +228,13 @@ def log_to_sheet(sig: dict):
 # ══════════════════════════════════════════════════════
 alerted_today    = {}
 pullback_waiting = {}
+last_signal_state = {}  # tracks last signal per stock: 1=BUY, -1=SELL, 0=none
 
 def reset_alerts():
-    global alerted_today, pullback_waiting
-    alerted_today    = {}
-    pullback_waiting = {}
+    global alerted_today, pullback_waiting, last_signal_state
+    alerted_today     = {}
+    pullback_waiting  = {}
+    last_signal_state = {}
     print("🔄 Alert memory reset.")
 
 # ══════════════════════════════════════════════════════
@@ -383,18 +385,32 @@ def scan_stock(name: str, ticker: str):
         entry_type = None
         direction  = None
 
-        if buy_cross and bull >= DIRECT_ENTRY_SCORE:
+        # Get last signal state for this stock (like Pine Script lastSignalState)
+        last_state = last_signal_state.get(name, 0)
+
+        # BUY: crossover + score >= 6 + last signal was not already BUY
+        if buy_cross and bull >= DIRECT_ENTRY_SCORE and last_state <= 0:
             entry_type = "DIRECT"
             direction  = "BUY"
-        elif sell_cross and bear >= DIRECT_ENTRY_SCORE:
+            last_signal_state[name] = 1
+
+        # SELL: crossunder + score >= 6 + last signal was not already SELL
+        elif sell_cross and bear >= DIRECT_ENTRY_SCORE and last_state >= 0:
             entry_type = "DIRECT"
             direction  = "SELL"
-        elif buy_cross and bull == PULLBACK_SCORE:
+            last_signal_state[name] = -1
+
+        # WATCH PULLBACK: crossover + score == 5 + last was not BUY
+        elif buy_cross and bull == PULLBACK_SCORE and last_state <= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "BUY"
-        elif sell_cross and bear == PULLBACK_SCORE:
+
+        # WATCH PULLBACK: crossunder + score == 5 + last was not SELL
+        elif sell_cross and bear == PULLBACK_SCORE and last_state >= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "SELL"
+
+        # PULLBACK CONFIRMED
         elif name in pullback_waiting:
             pw = pullback_waiting[name]
             if pw["direction"] == "BUY" and buy_pullback:
@@ -403,12 +419,14 @@ def scan_stock(name: str, ticker: str):
                 bull       = pw["score"]
                 bull_pct   = pw["pct"]
                 bias       = pw["bias"]
+                last_signal_state[name] = 1
             elif pw["direction"] == "SELL" and sell_pullback:
                 entry_type = "PULLBACK"
                 direction  = "SELL"
                 bear       = pw["score"]
                 bear_pct   = pw["pct"]
                 bias       = pw["bias"]
+                last_signal_state[name] = -1
 
         if entry_type is None:
             return None
