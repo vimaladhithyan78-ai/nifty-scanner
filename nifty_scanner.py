@@ -230,6 +230,9 @@ alerted_today    = {}
 pullback_waiting = {}
 last_signal_state = {}  # tracks last signal per stock: 1=BUY, -1=SELL, 0=none
 
+# Active trades tracking for TP/SL monitoring
+active_trades = {}  # name -> {direction, entry, sl, tp1, tp2, tp3, tp4, tp5, qty, t1hit, t2hit, t3hit}
+
 def reset_alerts():
     global alerted_today, pullback_waiting, last_signal_state
     alerted_today     = {}
@@ -560,6 +563,132 @@ def is_market_open() -> bool:
     c = now.replace(hour=10, minute=0, second=0, microsecond=0)
     return o <= now <= c
 
+
+# ══════════════════════════════════════════════════════
+#  TP / SL MONITOR
+# ══════════════════════════════════════════════════════
+def check_active_trades():
+    if not active_trades:
+        return
+
+    print("  Checking " + str(len(active_trades)) + " active trades...")
+    to_close = []
+
+    for name, trade in list(active_trades.items()):
+        try:
+            ticker = STOCKS.get(name)
+            if not ticker:
+                continue
+
+            df = yf.download(ticker, period="1d", interval="5m",
+                             progress=False, auto_adjust=True)
+            if df is None or len(df) < 1:
+                continue
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+
+            high  = float(df["High"].iloc[-1])
+            low   = float(df["Low"].iloc[-1])
+
+            direction = trade["direction"]
+            entry     = trade["entry"]
+            sl        = trade["sl"]
+            tp1       = trade["tp1"]
+            tp2       = trade["tp2"]
+            tp3       = trade["tp3"]
+            tp4       = trade["tp4"]
+            tp5       = trade["tp5"]
+            qty       = trade["qty"]
+            t_str     = now_ist().strftime("%H:%M:%S")
+
+            # SL Hit
+            sl_hit = (direction == "BUY" and low <= sl) or (direction == "SELL" and high >= sl)
+            if sl_hit:
+                loss = round(abs(entry - sl) * qty, 2)
+                msg = ("SL HIT - " + name + "\n"
+                    + "Direction: " + direction + "\n"
+                    + "Entry: " + str(entry) + "\n"
+                    + "SL: " + str(sl) + "\n"
+                    + "Loss: Rs." + str(loss) + "\n"
+                    + "Qty: " + str(qty) + " shares\n"
+                    + "Time: " + t_str + "\n"
+                    + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
+                send_telegram(msg)
+                to_close.append(name)
+                continue
+
+            # TP1
+            tp1_hit = (direction == "BUY" and high >= tp1) or (direction == "SELL" and low <= tp1)
+            if tp1_hit and not trade.get("t1hit"):
+                trade["t1hit"] = True
+                qty_exit = max(1, int(qty * 0.5))
+                profit = round(abs(tp1 - entry) * qty_exit, 2)
+                msg = ("TP1 HIT - " + name + "\n"
+                    + "Direction: " + direction + "\n"
+                    + "Entry: " + str(entry) + "\n"
+                    + "TP1: " + str(tp1) + "\n"
+                    + "Profit: Rs." + str(profit) + "\n"
+                    + "Exit: " + str(qty_exit) + " shares (50%)\n"
+                    + "ACTION: Move SL to entry " + str(entry) + "\n"
+                    + "Time: " + t_str + "\n"
+                    + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
+                send_telegram(msg)
+
+            # TP2
+            tp2_hit = (direction == "BUY" and high >= tp2) or (direction == "SELL" and low <= tp2)
+            if tp2_hit and trade.get("t1hit") and not trade.get("t2hit"):
+                trade["t2hit"] = True
+                qty_exit = max(1, int(qty * 0.3))
+                profit = round(abs(tp2 - entry) * qty_exit, 2)
+                msg = ("TP2 HIT - " + name + "\n"
+                    + "Direction: " + direction + "\n"
+                    + "Entry: " + str(entry) + "\n"
+                    + "TP2: " + str(tp2) + "\n"
+                    + "Profit: Rs." + str(profit) + "\n"
+                    + "Exit: " + str(qty_exit) + " shares (30%)\n"
+                    + "ACTION: Trail SL to TP1 " + str(tp1) + "\n"
+                    + "Time: " + t_str + "\n"
+                    + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
+                send_telegram(msg)
+
+            # TP3 - Full Close
+            tp3_hit = (direction == "BUY" and high >= tp3) or (direction == "SELL" and low <= tp3)
+            if tp3_hit and trade.get("t2hit") and not trade.get("t3hit"):
+                trade["t3hit"] = True
+                profit = round(abs(tp3 - entry) * qty, 2)
+                msg = ("TP3 HIT - FULL CLOSE - " + name + "\n"
+                    + "Direction: " + direction + "\n"
+                    + "Entry: " + str(entry) + "\n"
+                    + "TP3: " + str(tp3) + "\n"
+                    + "Total Profit: Rs." + str(profit) + "\n"
+                    + "ACTION: Close all remaining shares!\n"
+                    + "Time: " + t_str + "\n"
+                    + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
+                send_telegram(msg)
+                to_close.append(name)
+
+            # TP4 Bonus
+            tp4_hit = (direction == "BUY" and high >= tp4) or (direction == "SELL" and low <= tp4)
+            if tp4_hit and trade.get("t3hit") and not trade.get("t4hit"):
+                trade["t4hit"] = True
+                send_telegram("BONUS TP4 HIT - " + name + " @ " + str(tp4) + " | " + t_str)
+
+            # TP5 Bonus
+            tp5_hit = (direction == "BUY" and high >= tp5) or (direction == "SELL" and low <= tp5)
+            if tp5_hit and trade.get("t4hit") and not trade.get("t5hit"):
+                trade["t5hit"] = True
+                send_telegram("BONUS TP5 HIT - " + name + " @ " + str(tp5) + " | " + t_str)
+                to_close.append(name)
+
+        except Exception as e:
+            print("  Error checking trade " + name + ": " + str(e))
+
+    for name in to_close:
+        if name in active_trades:
+            del active_trades[name]
+            print("  Trade closed: " + name)
+
+
 # ══════════════════════════════════════════════════════
 #  MAIN SCAN
 # ══════════════════════════════════════════════════════
@@ -568,6 +697,9 @@ def run_scan():
     if not is_market_open():
         print(f"[{now_str}] ⏸️  Market closed.")
         return
+
+    # First check existing active trades for TP/SL hits
+    check_active_trades()
 
     print(f"\n{'='*52}")
     print(f"🔍 Scanning {len(STOCKS)} stocks | {now_str}")
@@ -612,6 +744,23 @@ def run_scan():
                 signals_found.append(result)
                 send_telegram(format_signal(result))
                 log_to_sheet(result)
+                # Add to active trades for TP/SL monitoring
+                active_trades[name] = {
+                    "direction": direction,
+                    "entry":     result["price"],
+                    "sl":        result["sl"],
+                    "tp1":       result["tp1"],
+                    "tp2":       result["tp2"],
+                    "tp3":       result["tp3"],
+                    "tp4":       result["tp4"],
+                    "tp5":       result["tp5"],
+                    "qty":       result["qty"],
+                    "t1hit":     False,
+                    "t2hit":     False,
+                    "t3hit":     False,
+                    "t4hit":     False,
+                    "t5hit":     False,
+                }
                 time.sleep(1)
             else:
                 print("⏭️")
