@@ -50,7 +50,7 @@ BUYING_POWER      = CAPITAL * LEVERAGE              # Rs.25,000 buying power
 # ══════════════════════════════════════════════════════
 #  SCANNER SETTINGS
 # ══════════════════════════════════════════════════════
-ATR_MULTIPLIER     = 2.0
+ATR_MULTIPLIER     = 1.5
 SCAN_INTERVAL      = 15
 TIMEFRAME          = "15m"
 PERIOD             = "5d"
@@ -559,8 +559,8 @@ def is_market_open() -> bool:
     now = now_ist()
     if now.weekday() >= 5:
         return False
-    o = now.replace(hour=3,  minute=45, second=0, microsecond=0)
-    c = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    o = now.replace(hour=9,  minute=15, second=0, microsecond=0)
+    c = now.replace(hour=15, minute=30, second=0, microsecond=0)
     return o <= now <= c
 
 
@@ -829,7 +829,7 @@ def status():
     }
 
 def run_scheduler():
-    schedule.every().day.at("03:45").do(market_open_greeting)
+    schedule.every().day.at("03:45").do(market_open_greeting)  # 9:15 AM IST
     schedule.every().day.at("10:00").do(market_close_message)
     schedule.every(SCAN_INTERVAL).minutes.do(run_scan)
 
