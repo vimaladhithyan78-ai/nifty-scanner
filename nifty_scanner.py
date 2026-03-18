@@ -782,7 +782,26 @@ def run_scan():
                 print(f"🚨 {entry_type} {direction}! {result['score']}/7")
                 signals_found.append(result)
                 send_telegram(format_signal(result))
-                log_to_sheet(result)
+                # If PULLBACK confirmed — update existing WATCH row
+                if entry_type == "PULLBACK":
+                    try:
+                        sheet = get_sheet()
+                        if sheet:
+                            all_rows = sheet.get_all_values()
+                            for i, row in enumerate(all_rows):
+                                if len(row) > 4 and row[2] == name and row[4] == "WATCH_PULLBACK" and (len(row) <= 23 or row[23] == "OPEN"):
+                                    sheet.update_cell(i + 1, 5,  "PULLBACK")
+                                    sheet.update_cell(i + 1, 6,  result["price"])
+                                    sheet.update_cell(i + 1, 7,  result["sl"])
+                                    sheet.update_cell(i + 1, 8,  result["tp1"])
+                                    sheet.update_cell(i + 1, 9,  result["tp2"])
+                                    sheet.update_cell(i + 1, 10, result["tp3"])
+                                    print("  ✅ Updated WATCH row to PULLBACK in sheet")
+                                    break
+                    except Exception as e:
+                        print("  ❌ Sheet pullback update error: " + str(e))
+                else:
+                    log_to_sheet(result)
                 # Add to active trades for TP/SL monitoring
                 active_trades[name] = {
                     "direction": direction,
