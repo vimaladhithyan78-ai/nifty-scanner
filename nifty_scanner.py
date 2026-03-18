@@ -184,14 +184,16 @@ def log_to_sheet(sig: dict):
                 "Date", "Time", "Stock", "Direction", "Entry Type",
                 "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
                 "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
-                "Qty", "Capital Needed", "Max Loss"
+                "Qty", "Capital Needed", "Max Loss",
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ])
         elif existing[0][0] != "Date":
             sheet.insert_row([
                 "Date", "Time", "Stock", "Direction", "Entry Type",
                 "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
                 "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
-                "Qty", "Capital Needed", "Max Loss"
+                "Qty", "Capital Needed", "Max Loss",
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ], 1)
 
         now = now_ist()
@@ -217,8 +219,14 @@ def log_to_sheet(sig: dict):
             sig["qty"],
             sig["cap_needed"],
             sig["max_loss"],
+            "",      # TP Hit
+            "",      # SL Hit
+            "OPEN",  # Result
+            "",      # P&L
         ]
         sheet.append_row(row)
+        # Store row number for later update
+        sig["sheet_row"] = len(sheet.get_all_values())
         print("  ✅ Logged to Google Sheets!")
     except Exception as e:
         print(f"  ❌ Sheet log error: {e}")
@@ -567,6 +575,33 @@ def is_market_open() -> bool:
 # ══════════════════════════════════════════════════════
 #  TP / SL MONITOR
 # ══════════════════════════════════════════════════════
+
+def update_sheet_result(name, result_type, pnl):
+    """Update the sheet row when TP or SL is hit"""
+    try:
+        sheet = get_sheet()
+        if sheet is None:
+            return
+        # Find the row with this stock that has OPEN status
+        all_rows = sheet.get_all_values()
+        for i, row in enumerate(all_rows):
+            if len(row) > 22 and row[2] == name and row[22] == "OPEN":
+                row_num = i + 1
+                if result_type.startswith("TP"):
+                    sheet.update_cell(row_num, 22, result_type)  # TP Hit col
+                    sheet.update_cell(row_num, 23, "")           # SL Hit col
+                    sheet.update_cell(row_num, 24, "WIN")        # Result col
+                    sheet.update_cell(row_num, 25, pnl)          # P&L col
+                elif result_type == "SL":
+                    sheet.update_cell(row_num, 22, "")           # TP Hit col
+                    sheet.update_cell(row_num, 23, "SL HIT")     # SL Hit col
+                    sheet.update_cell(row_num, 24, "LOSS")       # Result col
+                    sheet.update_cell(row_num, 25, pnl)          # P&L col
+                print("  ✅ Sheet result updated: " + name + " " + result_type)
+                break
+    except Exception as e:
+        print("  ❌ Sheet update error: " + str(e))
+
 def check_active_trades():
     if not active_trades:
         return
@@ -614,6 +649,7 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
+                update_sheet_result(name, "SL", -loss)
                 to_close.append(name)
                 continue
 
@@ -633,6 +669,7 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
+                update_sheet_result(name, "TP1", profit)
 
             # TP2
             tp2_hit = (direction == "BUY" and high >= tp2) or (direction == "SELL" and low <= tp2)
@@ -650,6 +687,7 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
+                update_sheet_result(name, "TP2", profit)
 
             # TP3 - Full Close
             tp3_hit = (direction == "BUY" and high >= tp3) or (direction == "SELL" and low <= tp3)
@@ -665,6 +703,7 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
+                update_sheet_result(name, "TP3", profit)
                 to_close.append(name)
 
             # TP4 Bonus
