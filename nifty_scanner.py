@@ -1,11 +1,12 @@
 """
 NIFTY 50 + BANK NIFTY SNIPER SCANNER
 - Render.com 24/7 version with Flask
-- Capital: Rs.5000 | Risk: 2% per trade = Rs.100
+- Capital: Rs.25000 | Risk: 2% per trade = Rs.500
 - Intraday MIS 5x leverage = Rs.25,000 buying power
 - Bull/Bear Score 7 conditions
 - Direct Entry (6-7/7) + Pullback Entry (5/7)
-- ATR 2.0 SL + TP1 to TP5
+- Dynamic ATR (1.0 or 1.5) based on ADX
+- TP1 (50% exit) + TP2 (full close)
 - Position sizing per signal
 - Telegram alerts with TradingView link
 """
@@ -41,11 +42,11 @@ TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 # ══════════════════════════════════════════════════════
 #  CAPITAL & RISK
 # ══════════════════════════════════════════════════════
-CAPITAL           = 5000     # Rs.5,000 your capital
+CAPITAL           = 25000    # Rs.25,000 your capital
 RISK_PERCENT      = 2.0      # 2% risk per trade
 LEVERAGE          = 5        # MIS intraday 5x
-RISK_AMOUNT       = CAPITAL * (RISK_PERCENT / 100)  # Rs.100 max loss per trade
-BUYING_POWER      = CAPITAL * LEVERAGE              # Rs.25,000 buying power
+RISK_AMOUNT       = CAPITAL * (RISK_PERCENT / 100)  # Rs.500 max loss per trade
+BUYING_POWER      = CAPITAL * LEVERAGE              # Rs.1,25,000 buying power
 
 # ══════════════════════════════════════════════════════
 #  SCANNER SETTINGS
@@ -53,68 +54,63 @@ BUYING_POWER      = CAPITAL * LEVERAGE              # Rs.25,000 buying power
 ATR_MULTIPLIER     = 1.5
 SCAN_INTERVAL      = 15
 TIMEFRAME          = "15m"
-PERIOD             = "5d"
+PERIOD             = "3d"   # reduced from 5d to save memory
 DIRECT_ENTRY_SCORE = 6
 PULLBACK_SCORE     = 5
 
 # ══════════════════════════════════════════════════════
-#  54 STOCKS
+#  45 STOCKS
 # ══════════════════════════════════════════════════════
+# Best intraday stocks — high volume, affordable for Rs.5000 capital
+# Removed: expensive + low volume + slow movers
 STOCKS = {
-    "RELIANCE":   "RELIANCE.NS",
+    "RELIANCE":   "RELIANCE.NS",    # ~Rs.1400
+    "HDFCBANK":   "HDFCBANK.NS",    # ~Rs.1700
+    "INFY":       "INFY.NS",        # ~Rs.1500
+    "ICICIBANK":  "ICICIBANK.NS",   # ~Rs.1300
+    "ITC":        "ITC.NS",         # ~Rs.415
+    "KOTAKBANK":  "KOTAKBANK.NS",   # ~Rs.1900
+    "SBIN":       "SBIN.NS",        # ~Rs.800
+    "BHARTIARTL": "BHARTIARTL.NS",  # ~Rs.1700
+    "AXISBANK":   "AXISBANK.NS",    # ~Rs.1100
+    "SUNPHARMA":  "SUNPHARMA.NS",   # ~Rs.1700
+    "WIPRO":      "WIPRO.NS",       # ~Rs.250
+    "HCLTECH":    "HCLTECH.NS",     # ~Rs.1500
+    "BAJFINANCE": "BAJFINANCE.NS",  # ~Rs.850
+    "DRREDDY":    "DRREDDY.NS",     # ~Rs.1200
+    "NTPC":       "NTPC.NS",        # ~Rs.330
+    "POWERGRID":  "POWERGRID.NS",   # ~Rs.300
+    "TATAMOTORS": "TATAMOTORS.NS",  # ~Rs.650
+    "TATASTEEL":  "TATASTEEL.NS",   # ~Rs.140
+    "ADANIPORTS": "ADANIPORTS.NS",  # ~Rs.1200
+    "CIPLA":      "CIPLA.NS",       # ~Rs.1500
+    "JSWSTEEL":   "JSWSTEEL.NS",    # ~Rs.950
+    "HINDALCO":   "HINDALCO.NS",    # ~Rs.600
+    "BPCL":       "BPCL.NS",        # ~Rs.280
+    "ONGC":       "ONGC.NS",        # ~Rs.240
+    "COALINDIA":  "COALINDIA.NS",   # ~Rs.400
+    "BAJAJFINSV": "BAJAJFINSV.NS",  # ~Rs.1900
+    "HDFCLIFE":   "HDFCLIFE.NS",    # ~Rs.700
+    "SBILIFE":    "SBILIFE.NS",     # ~Rs.1500
+    "SHRIRAMFIN": "SHRIRAMFIN.NS",  # ~Rs.600
+    "TATACONSUM": "TATACONSUM.NS",  # ~Rs.900
+    "TECHM":      "TECHM.NS",       # ~Rs.1400
+    "INDUSINDBK": "INDUSINDBK.NS",  # ~Rs.700
+    "BANDHANBNK": "BANDHANBNK.NS",  # ~Rs.160
+    "FEDERALBNK": "FEDERALBNK.NS",  # ~Rs.200
+    "IDFCFIRSTB": "IDFCFIRSTB.NS",  # ~Rs.63
+    "PNB":        "PNB.NS",         # ~Rs.110
+    # Added back — high volume intraday stocks
     "TCS":        "TCS.NS",
-    "HDFCBANK":   "HDFCBANK.NS",
-    "INFY":       "INFY.NS",
-    "ICICIBANK":  "ICICIBANK.NS",
-    "HINDUNILVR": "HINDUNILVR.NS",
-    "ITC":        "ITC.NS",
-    "KOTAKBANK":  "KOTAKBANK.NS",
     "LT":         "LT.NS",
-    "SBIN":       "SBIN.NS",
-    "BHARTIARTL": "BHARTIARTL.NS",
-    "AXISBANK":   "AXISBANK.NS",
-    "ASIANPAINT": "ASIANPAINT.NS",
-    "MARUTI":     "MARUTI.NS",
-    "TITAN":      "TITAN.NS",
-    "SUNPHARMA":  "SUNPHARMA.NS",
-    "WIPRO":      "WIPRO.NS",
-    "HCLTECH":    "HCLTECH.NS",
-    "BAJFINANCE": "BAJFINANCE.NS",
-    "NESTLEIND":  "NESTLEIND.NS",
-    "DRREDDY":    "DRREDDY.NS",
     "MM":         "M&M.NS",
-    "NTPC":       "NTPC.NS",
-    "POWERGRID":  "POWERGRID.NS",
-    "TATAMOTORS": "TATAMOTORS.NS",
-    "TATASTEEL":  "TATASTEEL.NS",
-    "ADANIENT":   "ADANIENT.NS",
-    "ADANIPORTS": "ADANIPORTS.NS",
-    "CIPLA":      "CIPLA.NS",
-    "EICHERMOT":  "EICHERMOT.NS",
-    "BAJAJAUTO":  "BAJAJ-AUTO.NS",
-    "JSWSTEEL":   "JSWSTEEL.NS",
-    "HINDALCO":   "HINDALCO.NS",
-    "ULTRACEMCO": "ULTRACEMCO.NS",
-    "GRASIM":     "GRASIM.NS",
-    "BPCL":       "BPCL.NS",
-    "ONGC":       "ONGC.NS",
-    "COALINDIA":  "COALINDIA.NS",
-    "HEROMOTOCO": "HEROMOTOCO.NS",
-    "DIVISLAB":   "DIVISLAB.NS",
-    "APOLLOHOSP": "APOLLOHOSP.NS",
-    "BAJAJFINSV": "BAJAJFINSV.NS",
-    "BRITANNIA":  "BRITANNIA.NS",
-    "HDFCLIFE":   "HDFCLIFE.NS",
-    "LTIM":       "LTIM.NS",
-    "SBILIFE":    "SBILIFE.NS",
-    "SHRIRAMFIN": "SHRIRAMFIN.NS",
-    "TATACONSUM": "TATACONSUM.NS",
-    "TECHM":      "TECHM.NS",
-    "INDUSINDBK": "INDUSINDBK.NS",
-    "BANDHANBNK": "BANDHANBNK.NS",
-    "FEDERALBNK": "FEDERALBNK.NS",
-    "IDFCFIRSTB": "IDFCFIRSTB.NS",
-    "PNB":        "PNB.NS",
+    "TITAN":      "TITAN.NS",
+    # New high volume Nifty 500 stocks
+    "BANKBARODA": "BANKBARODA.NS",
+    "IOC":        "IOC.NS",
+    "TATAPOWER":  "TATAPOWER.NS",
+    "SAIL":       "SAIL.NS",
+    "IRFC":       "IRFC.NS",
 }
 
 # ══════════════════════════════════════════════════════
@@ -182,7 +178,7 @@ def log_to_sheet(sig: dict):
         if not existing or len(existing) == 0:
             sheet.append_row([
                 "Date", "Time", "Stock", "Direction", "Entry Type",
-                "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
+                "Entry", "SL", "TP1", "TP2",
                 "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
                 "Qty", "Capital Needed", "Max Loss",
                 "TP Hit", "SL Hit", "Result", "P&L (Rs)"
@@ -190,7 +186,7 @@ def log_to_sheet(sig: dict):
         elif existing[0][0] != "Date":
             sheet.insert_row([
                 "Date", "Time", "Stock", "Direction", "Entry Type",
-                "Entry", "SL", "TP1", "TP2", "TP3", "TP4", "TP5",
+                "Entry", "SL", "TP1", "TP2",
                 "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
                 "Qty", "Capital Needed", "Max Loss",
                 "TP Hit", "SL Hit", "Result", "P&L (Rs)"
@@ -207,9 +203,6 @@ def log_to_sheet(sig: dict):
             sig["sl"],
             sig["tp1"],
             sig["tp2"],
-            sig["tp3"],
-            sig["tp4"],
-            sig["tp5"],
             f"{sig['score']}/7",
             sig["bias"],
             sig["rsi"],
@@ -239,7 +232,7 @@ pullback_waiting = {}
 last_signal_state = {}  # tracks last signal per stock: 1=BUY, -1=SELL, 0=none
 
 # Active trades tracking for TP/SL monitoring
-active_trades = {}  # name -> {direction, entry, sl, tp1, tp2, tp3, tp4, tp5, qty, t1hit, t2hit, t3hit}
+active_trades = {}  # name -> {direction, entry, sl, tp1, tp2, qty, t1hit, t2hit}
 
 def reset_alerts():
     global alerted_today, pullback_waiting, last_signal_state
@@ -319,30 +312,30 @@ def scan_stock(name: str, ticker: str):
     try:
         # Retry up to 3 times if rate limited
         df = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 df = yf.download(ticker, period=PERIOD, interval=TIMEFRAME,
                                  progress=False, auto_adjust=True)
                 if df is not None and len(df) >= 30:
                     break
-                time.sleep(2)
+                time.sleep(1)
             except Exception:
-                time.sleep(3)
+                time.sleep(2)
         if df is None or len(df) < 30:
             return None
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
         df5 = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
-                df5 = yf.download(ticker, period="2d", interval="5m",
+                df5 = yf.download(ticker, period="1d", interval="5m",
                                   progress=False, auto_adjust=True)
                 if df5 is not None and len(df5) >= 14:
                     break
-                time.sleep(2)
+                time.sleep(1)
             except Exception:
-                time.sleep(3)
+                time.sleep(2)
         if df5 is None:
             df5 = pd.DataFrame()
         if isinstance(df5.columns, pd.MultiIndex):
@@ -461,21 +454,23 @@ def scan_stock(name: str, ticker: str):
         if entry_type is None:
             return None
 
-        risk = atr_c * ATR_MULTIPLIER
+        # Dynamic ATR based on ADX strength
+        if adx_c > 30:
+            dynamic_atr = 1.0   # Strong trend — tight SL, more qty
+        elif adx_c >= 25:
+            dynamic_atr = 1.5   # Normal trend — medium SL
+        else:
+            return None         # Weak trend — skip signal
+
+        risk = atr_c * dynamic_atr
         if direction == "BUY":
             sl  = cl - risk
             tp1 = cl + risk
             tp2 = cl + risk * 2
-            tp3 = cl + risk * 3
-            tp4 = cl + risk * 4
-            tp5 = cl + risk * 5
         else:
             sl  = cl + risk
             tp1 = cl - risk
             tp2 = cl - risk * 2
-            tp3 = cl - risk * 3
-            tp4 = cl - risk * 4
-            tp5 = cl - risk * 5
 
         score = bull if direction == "BUY" else bear
         pct   = bull_pct if direction == "BUY" else bear_pct
@@ -490,15 +485,13 @@ def scan_stock(name: str, ticker: str):
             "sl":         round(sl,  2),
             "tp1":        round(tp1, 2),
             "tp2":        round(tp2, 2),
-            "tp3":        round(tp3, 2),
-            "tp4":        round(tp4, 2),
-            "tp5":        round(tp5, 2),
             "score":      score,
             "pct":        pct,
             "bias":       bias,
             "rsi":        round(rsi_c,  1),
             "rsi5m":      round(rsi5_c, 1),
             "adx":        round(adx_c,  1),
+            "dynamic_atr": dynamic_atr,
             "vwap":       "ABOVE ✅" if cl > vwap_c else "BELOW ❌",
             "macd":       "BULL ▲" if macd_c > msig_c else "BEAR ▼",
             "qty":        pos["qty"],
@@ -537,11 +530,8 @@ def format_signal(sig: dict) -> str:
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎯 Entry : `{sig['price']}`\n"
         f"🛑 SL    : `{sig['sl']}`\n"
-        f"✅ TP1   : `{sig['tp1']}`\n"
-        f"✅ TP2   : `{sig['tp2']}`\n"
-        f"✅ TP3   : `{sig['tp3']}`\n"
-        f"✅ TP4   : `{sig['tp4']}`\n"
-        f"✅ TP5   : `{sig['tp5']}`\n"
+        f"✅ TP1   : `{sig['tp1']}` (exit 50%)\n"
+        f"✅ TP2   : `{sig['tp2']}` (full close)\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"💼 *POSITION SIZE*\n"
         f"📦 Qty      : *{sig['qty']} shares*\n"
@@ -555,6 +545,7 @@ def format_signal(sig: dict) -> str:
         f"💧 VWAP  : {sig['vwap']}\n"
         f"⚡ MACD  : {sig['macd']}\n"
         f"🔥 ADX   : {sig['adx']}\n"
+        f"📐 ATR   : {sig.get('dynamic_atr', 1.5)} (ADX: {sig['adx']})\n"
         f"⏰ TF    : {TIMEFRAME}\n"
         f"🕐 Time  : {now_ist().strftime('%H:%M:%S')}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -586,18 +577,18 @@ def update_sheet_result(name, result_type, pnl):
         # Find the row with this stock that has OPEN status
         all_rows = sheet.get_all_values()
         for i, row in enumerate(all_rows):
-            if len(row) > 22 and row[2] == name and row[22] == "OPEN":
+            if len(row) > 20 and row[2] == name and row[20] == "OPEN":
                 row_num = i + 1
                 if result_type.startswith("TP"):
-                    sheet.update_cell(row_num, 22, result_type)  # TP Hit col
-                    sheet.update_cell(row_num, 23, "")           # SL Hit col
-                    sheet.update_cell(row_num, 24, "WIN")        # Result col
-                    sheet.update_cell(row_num, 25, pnl)          # P&L col
+                    sheet.update_cell(row_num, 19, result_type)  # TP Hit col
+                    sheet.update_cell(row_num, 20, "")           # SL Hit col
+                    sheet.update_cell(row_num, 21, "WIN")        # Result col
+                    sheet.update_cell(row_num, 22, pnl)          # P&L col
                 elif result_type == "SL":
-                    sheet.update_cell(row_num, 22, "")           # TP Hit col
-                    sheet.update_cell(row_num, 23, "SL HIT")     # SL Hit col
-                    sheet.update_cell(row_num, 24, "LOSS")       # Result col
-                    sheet.update_cell(row_num, 25, pnl)          # P&L col
+                    sheet.update_cell(row_num, 19, "")           # TP Hit col
+                    sheet.update_cell(row_num, 20, "SL HIT")     # SL Hit col
+                    sheet.update_cell(row_num, 21, "LOSS")       # Result col
+                    sheet.update_cell(row_num, 22, pnl)          # P&L col
                 print("  ✅ Sheet result updated: " + name + " " + result_type)
                 break
     except Exception as e:
@@ -631,9 +622,8 @@ def check_active_trades():
             sl        = trade["sl"]
             tp1       = trade["tp1"]
             tp2       = trade["tp2"]
-            tp3       = trade["tp3"]
-            tp4       = trade["tp4"]
-            tp5       = trade["tp5"]
+
+
             qty       = trade["qty"]
             t_str     = now_ist().strftime("%H:%M:%S")
 
@@ -672,53 +662,27 @@ def check_active_trades():
                 send_telegram(msg)
                 update_sheet_result(name, "TP1", profit)
 
-            # TP2
+            # TP2 - Full Close
             tp2_hit = (direction == "BUY" and high >= tp2) or (direction == "SELL" and low <= tp2)
             if tp2_hit and trade.get("t1hit") and not trade.get("t2hit"):
                 trade["t2hit"] = True
-                qty_exit = max(1, int(qty * 0.3))
+                qty_exit = max(1, int(qty * 0.5))
                 profit = round(abs(tp2 - entry) * qty_exit, 2)
-                msg = ("TP2 HIT - " + name + "\n"
+                msg = ("TP2 HIT - FULL CLOSE - " + name + "\n"
                     + "Direction: " + direction + "\n"
                     + "Entry: " + str(entry) + "\n"
                     + "TP2: " + str(tp2) + "\n"
-                    + "Profit: Rs." + str(profit) + "\n"
-                    + "Exit: " + str(qty_exit) + " shares (30%)\n"
-                    + "ACTION: Trail SL to TP1 " + str(tp1) + "\n"
-                    + "Time: " + t_str + "\n"
-                    + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
-                send_telegram(msg)
-                update_sheet_result(name, "TP2", profit)
-
-            # TP3 - Full Close
-            tp3_hit = (direction == "BUY" and high >= tp3) or (direction == "SELL" and low <= tp3)
-            if tp3_hit and trade.get("t2hit") and not trade.get("t3hit"):
-                trade["t3hit"] = True
-                profit = round(abs(tp3 - entry) * qty, 2)
-                msg = ("TP3 HIT - FULL CLOSE - " + name + "\n"
-                    + "Direction: " + direction + "\n"
-                    + "Entry: " + str(entry) + "\n"
-                    + "TP3: " + str(tp3) + "\n"
                     + "Total Profit: Rs." + str(profit) + "\n"
                     + "ACTION: Close all remaining shares!\n"
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
-                update_sheet_result(name, "TP3", profit)
+                update_sheet_result(name, "TP2", profit)
                 to_close.append(name)
 
-            # TP4 Bonus
-            tp4_hit = (direction == "BUY" and high >= tp4) or (direction == "SELL" and low <= tp4)
-            if tp4_hit and trade.get("t3hit") and not trade.get("t4hit"):
-                trade["t4hit"] = True
-                send_telegram("BONUS TP4 HIT - " + name + " @ " + str(tp4) + " | " + t_str)
 
-            # TP5 Bonus
-            tp5_hit = (direction == "BUY" and high >= tp5) or (direction == "SELL" and low <= tp5)
-            if tp5_hit and trade.get("t4hit") and not trade.get("t5hit"):
-                trade["t5hit"] = True
-                send_telegram("BONUS TP5 HIT - " + name + " @ " + str(tp5) + " | " + t_str)
-                to_close.append(name)
+
+
 
         except Exception as e:
             print("  Error checking trade " + name + ": " + str(e))
@@ -790,13 +754,12 @@ def run_scan():
                         if sheet:
                             all_rows = sheet.get_all_values()
                             for i, row in enumerate(all_rows):
-                                if len(row) > 4 and row[2] == name and row[4] == "WATCH_PULLBACK" and (len(row) <= 23 or row[23] == "OPEN"):
+                                if len(row) > 4 and row[2] == name and row[4] == "WATCH_PULLBACK" and (len(row) <= 20 or row[20] == "OPEN"):
                                     sheet.update_cell(i + 1, 5,  "PULLBACK")
                                     sheet.update_cell(i + 1, 6,  result["price"])
                                     sheet.update_cell(i + 1, 7,  result["sl"])
                                     sheet.update_cell(i + 1, 8,  result["tp1"])
                                     sheet.update_cell(i + 1, 9,  result["tp2"])
-                                    sheet.update_cell(i + 1, 10, result["tp3"])
                                     print("  ✅ Updated WATCH row to PULLBACK in sheet")
                                     break
                     except Exception as e:
@@ -810,15 +773,9 @@ def run_scan():
                     "sl":        result["sl"],
                     "tp1":       result["tp1"],
                     "tp2":       result["tp2"],
-                    "tp3":       result["tp3"],
-                    "tp4":       result["tp4"],
-                    "tp5":       result["tp5"],
                     "qty":       result["qty"],
                     "t1hit":     False,
                     "t2hit":     False,
-                    "t3hit":     False,
-                    "t4hit":     False,
-                    "t5hit":     False,
                 }
                 time.sleep(1)
             else:
@@ -838,7 +795,7 @@ def run_scan():
         for s in signals_found:
             e = "🟢" if s["direction"] == "BUY" else "🔴"
             t = "⚡" if s["entry_type"] == "DIRECT" else "🔄" if s["entry_type"] == "PULLBACK" else "👀"
-            summary += f"{e}{t} *{s['name']}* @ {s['price']} | {s['score']}/7 | Qty:{s['qty']}\n"
+            summary += f"{e}{t} *{s['name']}* @ {s['price']} | SL:{s['sl']} | TP1:{s['tp1']} | TP2:{s['tp2']} | {s['score']}/7\n"
         send_telegram(summary)
     else:
         print("  ⚪ No signals.")
@@ -868,7 +825,7 @@ def market_close_message():
             all_rows = sheet.get_all_values()
             expired = 0
             for i, row in enumerate(all_rows):
-                if len(row) > 23 and row[23] == "OPEN":
+                if len(row) > 20 and row[20] == "OPEN":
                     sheet.update_cell(i + 1, 24, "EXPIRED")
                     expired += 1
             if expired > 0:
@@ -922,7 +879,7 @@ def reload_active_trades():
             if i == 0:
                 continue
             # Check if Result column is OPEN
-            if len(row) > 23 and row[23] == "OPEN":
+            if len(row) > 20 and row[20] == "OPEN":
                 try:
                     name      = row[2]
                     direction = row[3]
@@ -930,9 +887,7 @@ def reload_active_trades():
                     sl        = float(row[6])
                     tp1       = float(row[7])
                     tp2       = float(row[8])
-                    tp3       = float(row[9])
-                    tp4       = float(row[10])
-                    tp5       = float(row[11])
+
                     qty       = int(row[18]) if row[18] else 1
                     if name and direction and entry:
                         active_trades[name] = {
@@ -941,15 +896,9 @@ def reload_active_trades():
                             "sl":        sl,
                             "tp1":       tp1,
                             "tp2":       tp2,
-                            "tp3":       tp3,
-                            "tp4":       tp4,
-                            "tp5":       tp5,
                             "qty":       qty,
                             "t1hit":     False,
                             "t2hit":     False,
-                            "t3hit":     False,
-                            "t4hit":     False,
-                            "t5hit":     False,
                         }
                         count += 1
                 except Exception:
