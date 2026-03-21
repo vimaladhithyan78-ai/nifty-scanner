@@ -861,7 +861,7 @@ def market_open_greeting():
 
 def market_close_message():
     pullback_waiting.clear()
-    active_trades.clear()
+    # Update all OPEN trades to EXPIRED in sheet — keeps history intact
     try:
         sheet = get_sheet()
         if sheet:
@@ -872,9 +872,16 @@ def market_close_message():
                     sheet.update_cell(i + 1, 24, "EXPIRED")
                     expired += 1
             if expired > 0:
-                print("  Marked " + str(expired) + " trades as EXPIRED")
+                print("  Marked " + str(expired) + " trades as EXPIRED in sheet")
+                send_telegram(
+                    "📋 *" + str(expired) + " trades marked EXPIRED*\n"
+                    "All OPEN positions closed at market end\n"
+                    f"🕐 {now_ist().strftime('%H:%M:%S')}"
+                )
     except Exception as e:
         print("  Sheet expire error: " + str(e))
+    # Clear memory only — sheet history preserved
+    active_trades.clear()
     send_telegram(
         "🔕 *Market Closed — Scanner Paused*\n"
         f"Will resume tomorrow at 9:15 AM IST\n"
@@ -901,9 +908,63 @@ def status():
         "time":      now_ist().strftime("%Y-%m-%d %H:%M:%S")
     }
 
+
+def reload_active_trades():
+    """Load all OPEN trades from Google Sheet into memory on startup"""
+    try:
+        sheet = get_sheet()
+        if sheet is None:
+            return
+        all_rows = sheet.get_all_values()
+        count = 0
+        for i, row in enumerate(all_rows):
+            # Skip header row
+            if i == 0:
+                continue
+            # Check if Result column is OPEN
+            if len(row) > 23 and row[23] == "OPEN":
+                try:
+                    name      = row[2]
+                    direction = row[3]
+                    entry     = float(row[5])
+                    sl        = float(row[6])
+                    tp1       = float(row[7])
+                    tp2       = float(row[8])
+                    tp3       = float(row[9])
+                    tp4       = float(row[10])
+                    tp5       = float(row[11])
+                    qty       = int(row[18]) if row[18] else 1
+                    if name and direction and entry:
+                        active_trades[name] = {
+                            "direction": direction,
+                            "entry":     entry,
+                            "sl":        sl,
+                            "tp1":       tp1,
+                            "tp2":       tp2,
+                            "tp3":       tp3,
+                            "tp4":       tp4,
+                            "tp5":       tp5,
+                            "qty":       qty,
+                            "t1hit":     False,
+                            "t2hit":     False,
+                            "t3hit":     False,
+                            "t4hit":     False,
+                            "t5hit":     False,
+                        }
+                        count += 1
+                except Exception:
+                    continue
+        if count > 0:
+            print("  Reloaded " + str(count) + " active trades from sheet")
+    except Exception as e:
+        print("  Reload error: " + str(e))
+
 def run_scheduler():
+    # Reload any open trades from sheet on startup
+    reload_active_trades()
+
     schedule.every().day.at("03:45").do(market_open_greeting)  # 9:15 AM IST
-    schedule.every().day.at("10:00").do(market_close_message)
+    schedule.every().day.at("09:45").do(market_close_message)  # 3:15 PM IST
     schedule.every(SCAN_INTERVAL).minutes.do(run_scan)
 
     send_telegram(
