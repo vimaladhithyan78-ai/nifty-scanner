@@ -177,48 +177,47 @@ def log_to_sheet(sig: dict):
         existing = sheet.get_all_values()
         if not existing or len(existing) == 0:
             sheet.append_row([
-                "Date", "Time", "Stock", "Direction", "Entry Type",
-                "Entry", "SL", "TP1", "TP2",
-                "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
-                "Qty", "Capital Needed", "Max Loss",
+                "Date", "Time", "Stock",
+                "Entry", "SL", "TP1", "TP2", "RR",
+                "Score", "ADX", "Qty",
                 "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ])
         elif existing[0][0] != "Date":
             sheet.insert_row([
-                "Date", "Time", "Stock", "Direction", "Entry Type",
-                "Entry", "SL", "TP1", "TP2",
-                "Score", "Bias", "RSI", "ADX", "VWAP", "MACD",
-                "Qty", "Capital Needed", "Max Loss",
+                "Date", "Time", "Stock",
+                "Entry", "SL", "TP1", "TP2", "RR",
+                "Score", "ADX", "Qty",
                 "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ], 1)
 
         now = now_ist()
+
+        # Calculate RR ratio
+        risk   = abs(sig["price"] - sig["sl"])
+        reward = abs(sig["tp1"]   - sig["price"])
+        rr     = round(reward / risk, 2) if risk > 0 else 0
+
+        # Stock name with BUY/SELL indicator
+        stock_name = sig["name"] + (" 🟢" if sig["direction"] == "BUY" else " 🔴")
+
         row = [
             now.strftime("%d-%b-%Y"),
             now.strftime("%H:%M:%S"),
-            sig["name"],
-            sig["direction"],
-            sig["entry_type"],
+            stock_name,
             sig["price"],
             sig["sl"],
             sig["tp1"],
             sig["tp2"],
+            f"1:{rr}",
             f"{sig['score']}/7",
-            sig["bias"],
-            sig["rsi"],
             sig["adx"],
-            sig["vwap"],
-            sig["macd"],
             sig["qty"],
-            sig["cap_needed"],
-            sig["max_loss"],
             "",      # TP Hit
             "",      # SL Hit
             "OPEN",  # Result
             "",      # P&L
         ]
         sheet.append_row(row)
-        # Store row number for later update
         sig["sheet_row"] = len(sheet.get_all_values())
         print("  ✅ Logged to Google Sheets!")
     except Exception as e:
@@ -577,18 +576,18 @@ def update_sheet_result(name, result_type, pnl):
         # Find the row with this stock that has OPEN status
         all_rows = sheet.get_all_values()
         for i, row in enumerate(all_rows):
-            if len(row) > 20 and row[2] == name and row[20] == "OPEN":
+            if len(row) > 13 and row[2] == name and row[13] == "OPEN":
                 row_num = i + 1
                 if result_type.startswith("TP"):
-                    sheet.update_cell(row_num, 19, result_type)  # TP Hit col
-                    sheet.update_cell(row_num, 20, "")           # SL Hit col
-                    sheet.update_cell(row_num, 21, "WIN")        # Result col
-                    sheet.update_cell(row_num, 22, pnl)          # P&L col
+                    sheet.update_cell(row_num, 12, result_type)  # TP Hit col
+                    sheet.update_cell(row_num, 13, "")           # SL Hit col
+                    sheet.update_cell(row_num, 14, "WIN")        # Result col
+                    sheet.update_cell(row_num, 15, pnl)          # P&L col
                 elif result_type == "SL":
-                    sheet.update_cell(row_num, 19, "")           # TP Hit col
-                    sheet.update_cell(row_num, 20, "SL HIT")     # SL Hit col
-                    sheet.update_cell(row_num, 21, "LOSS")       # Result col
-                    sheet.update_cell(row_num, 22, pnl)          # P&L col
+                    sheet.update_cell(row_num, 12, "")           # TP Hit col
+                    sheet.update_cell(row_num, 13, "SL HIT")     # SL Hit col
+                    sheet.update_cell(row_num, 14, "LOSS")       # Result col
+                    sheet.update_cell(row_num, 15, pnl)          # P&L col
                 print("  ✅ Sheet result updated: " + name + " " + result_type)
                 break
     except Exception as e:
@@ -754,12 +753,11 @@ def run_scan():
                         if sheet:
                             all_rows = sheet.get_all_values()
                             for i, row in enumerate(all_rows):
-                                if len(row) > 4 and row[2] == name and row[4] == "WATCH_PULLBACK" and (len(row) <= 20 or row[20] == "OPEN"):
-                                    sheet.update_cell(i + 1, 5,  "PULLBACK")
-                                    sheet.update_cell(i + 1, 6,  result["price"])
-                                    sheet.update_cell(i + 1, 7,  result["sl"])
-                                    sheet.update_cell(i + 1, 8,  result["tp1"])
-                                    sheet.update_cell(i + 1, 9,  result["tp2"])
+                                if len(row) > 3 and row[2] == name and row[13] == "OPEN":
+                                    sheet.update_cell(i + 1, 4,  result["price"])
+                                    sheet.update_cell(i + 1, 5,  result["sl"])
+                                    sheet.update_cell(i + 1, 6,  result["tp1"])
+                                    sheet.update_cell(i + 1, 7,  result["tp2"])
                                     print("  ✅ Updated WATCH row to PULLBACK in sheet")
                                     break
                     except Exception as e:
@@ -885,8 +883,8 @@ def reload_active_trades():
                     direction = row[3]
                     entry     = float(row[5])
                     sl        = float(row[6])
-                    tp1       = float(row[7])
-                    tp2       = float(row[8])
+                    tp1       = float(row[5])
+                    tp2       = float(row[6])
 
                     qty       = int(row[18]) if row[18] else 1
                     if name and direction and entry:
