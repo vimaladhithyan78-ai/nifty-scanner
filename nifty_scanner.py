@@ -530,8 +530,9 @@ def format_signal(sig: dict) -> str:
     feasible_line = sig["pos_note"]
 
     return (
+        f"🎯 *SNIPER ENTRY/EXIT V.02*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{emoji} *{sig['direction']} SIGNAL — {sig['name']}*\n"
+        f"{emoji} *{sig['direction']} — {sig['name']}*\n"
         f"{entry_line}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎯 Entry : `{sig['price']}`\n"
@@ -860,6 +861,20 @@ def market_open_greeting():
 
 def market_close_message():
     pullback_waiting.clear()
+    active_trades.clear()
+    try:
+        sheet = get_sheet()
+        if sheet:
+            all_rows = sheet.get_all_values()
+            expired = 0
+            for i, row in enumerate(all_rows):
+                if len(row) > 23 and row[23] == "OPEN":
+                    sheet.update_cell(i + 1, 24, "EXPIRED")
+                    expired += 1
+            if expired > 0:
+                print("  Marked " + str(expired) + " trades as EXPIRED")
+    except Exception as e:
+        print("  Sheet expire error: " + str(e))
     send_telegram(
         "🔕 *Market Closed — Scanner Paused*\n"
         f"Will resume tomorrow at 9:15 AM IST\n"
