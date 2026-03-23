@@ -821,31 +821,77 @@ def market_open_greeting():
 
 def market_close_message():
     pullback_waiting.clear()
-    # Update all OPEN trades to EXPIRED in sheet — keeps history intact
+    total_pnl = 0.0
+    expired   = 0
+    wins      = 0
+    losses    = 0
+
     try:
         sheet = get_sheet()
         if sheet:
             all_rows = sheet.get_all_values()
-            expired = 0
             for i, row in enumerate(all_rows):
-                if len(row) > 20 and row[20] == "OPEN":
-                    sheet.update_cell(i + 1, 24, "EXPIRED")
-                    expired += 1
-            if expired > 0:
-                print("  Marked " + str(expired) + " trades as EXPIRED in sheet")
-                send_telegram(
-                    "📋 *" + str(expired) + " trades marked EXPIRED*\n"
-                    "All OPEN positions closed at market end\n"
-                    f"🕐 {now_ist().strftime('%H:%M:%S')}"
-                )
+                if len(row) > 13 and row[13] == "OPEN":
+                    try:
+                        # Get stock name without emoji
+                        name      = row[2].split(" ")[0]
+                        # Detect direction from emoji
+                        direction = "BUY" if "🟢" in row[2] else "SELL"
+                        entry     = float(row[3]) if row[3] else 0
+                        qty       = int(row[10]) if row[10] else 0
+                        pnl       = 0.0
+
+                        # Fetch current closing price
+                        ticker = STOCKS.get(name)
+                        if ticker and entry > 0 and qty > 0:
+                            df = yf.download(ticker, period="1d",
+                                           interval="1m",
+                                           progress=False,
+                                           auto_adjust=True)
+                            if df is not None and len(df) > 0:
+                                if isinstance(df.columns, pd.MultiIndex):
+                                    df.columns = df.columns.get_level_values(0)
+                                close_px = float(df["Close"].iloc[-1])
+                                if direction == "BUY":
+                                    pnl = round((close_px - entry) * qty, 2)
+                                else:
+                                    pnl = round((entry - close_px) * qty, 2)
+
+                        # Update sheet
+                        sheet.update_cell(i + 1, 14, "EXPIRED")
+                        sheet.update_cell(i + 1, 15, pnl)
+                        total_pnl += pnl
+                        expired   += 1
+                        if pnl > 0:
+                            wins += 1
+                        elif pnl < 0:
+                            losses += 1
+                        print("  EXPIRED: " + name + " P&L: Rs." + str(pnl))
+
+                    except Exception as ex:
+                        # Even if price fetch fails mark as EXPIRED
+                        try:
+                            sheet.update_cell(i + 1, 14, "EXPIRED")
+                        except:
+                            pass
+                        expired += 1
+
     except Exception as e:
         print("  Sheet expire error: " + str(e))
-    # Clear memory only — sheet history preserved
+
     active_trades.clear()
+
+    # Send day summary
     send_telegram(
         "🔕 *Market Closed — Scanner Paused*\n"
-        f"Will resume tomorrow at 9:15 AM IST\n"
-        f"🕐 {now_ist().strftime('%H:%M:%S')}"
+        f"🕐 {now_ist().strftime('%H:%M:%S')}\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"📊 *Day Summary*\n"
+        f"Total trades : {expired}\n"
+        f"✅ Profit    : {wins}\n"
+        f"❌ Loss      : {losses}\n"
+        f"💰 Net P&L   : Rs.{round(total_pnl, 2)}\n"
+        "━━━━━━━━━━━━━━━━━━━━"
     )
 
 # ══════════════════════════════════════════════════════
