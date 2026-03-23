@@ -649,6 +649,7 @@ def check_active_trades():
                 trade["t1hit"] = True
                 qty_exit = max(1, int(qty * 0.5))
                 profit = round(abs(tp1 - entry) * qty_exit, 2)
+                trade["tp1_profit"] = profit  # save for total calculation
                 msg = ("TP1 HIT - " + name + "\n"
                     + "Direction: " + direction + "\n"
                     + "Entry: " + str(entry) + "\n"
@@ -666,17 +667,21 @@ def check_active_trades():
             if tp2_hit and trade.get("t1hit") and not trade.get("t2hit"):
                 trade["t2hit"] = True
                 qty_exit = max(1, int(qty * 0.5))
-                profit = round(abs(tp2 - entry) * qty_exit, 2)
+                tp2_profit = round(abs(tp2 - entry) * qty_exit, 2)
+                tp1_profit = trade.get("tp1_profit", 0)
+                total_profit = round(tp1_profit + tp2_profit, 2)
                 msg = ("TP2 HIT - FULL CLOSE - " + name + "\n"
                     + "Direction: " + direction + "\n"
                     + "Entry: " + str(entry) + "\n"
                     + "TP2: " + str(tp2) + "\n"
-                    + "Total Profit: Rs." + str(profit) + "\n"
+                    + "TP2 Profit: Rs." + str(tp2_profit) + "\n"
+                    + "TP1 Profit: Rs." + str(tp1_profit) + "\n"
+                    + "Total Profit: Rs." + str(total_profit) + "\n"
                     + "ACTION: Close all remaining shares!\n"
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
-                update_sheet_result(name, "TP2", profit)
+                update_sheet_result(name, "TP2", total_profit)
                 to_close.append(name)
 
 
@@ -893,21 +898,10 @@ def manual_reload():
 
 @app.route("/expire")
 def manual_expire():
-    """Manually mark all OPEN trades as EXPIRED in sheet"""
+    """Manually mark all OPEN trades as EXPIRED with P&L"""
     try:
-        sheet = get_sheet()
-        if sheet is None:
-            return {"status": "error", "message": "Sheet not available"}
-        all_rows = sheet.get_all_values()
-        expired = 0
-        for i, row in enumerate(all_rows):
-            if len(row) > 13 and row[13] == "OPEN":
-                sheet.update_cell(i + 1, 14, "EXPIRED")
-                expired += 1
-        active_trades.clear()
-        msg = "Marked " + str(expired) + " trades as EXPIRED"
-        send_telegram("📋 *Manual Expire Done*\n" + msg)
-        return {"status": "ok", "message": msg}
+        market_close_message()
+        return {"status": "ok", "message": "Expire done with P&L calculated"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
