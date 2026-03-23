@@ -576,7 +576,7 @@ def update_sheet_result(name, result_type, pnl):
         # Find the row with this stock that has OPEN status
         all_rows = sheet.get_all_values()
         for i, row in enumerate(all_rows):
-            if len(row) > 13 and row[2] == name and row[13] == "OPEN":
+            if len(row) > 13 and row[2].startswith(name) and row[13] == "OPEN":
                 row_num = i + 1
                 if result_type.startswith("TP"):
                     sheet.update_cell(row_num, 12, result_type)  # TP Hit col
@@ -855,13 +855,61 @@ def home():
 @app.route("/status")
 def status():
     return {
-        "status":    "running",
-        "stocks":    len(STOCKS),
-        "timeframe": TIMEFRAME,
-        "capital":   CAPITAL,
-        "market":    "open" if is_market_open() else "closed",
-        "time":      now_ist().strftime("%Y-%m-%d %H:%M:%S")
+        "status":       "running",
+        "stocks":       len(STOCKS),
+        "timeframe":    TIMEFRAME,
+        "capital":      CAPITAL,
+        "market":       "open" if is_market_open() else "closed",
+        "active_trades": len(active_trades),
+        "time":         now_ist().strftime("%Y-%m-%d %H:%M:%S")
     }
+
+@app.route("/check")
+def manual_check():
+    """Manually trigger TP/SL check for all OPEN trades in sheet"""
+    try:
+        # Reload trades from sheet first
+        reload_active_trades()
+        # Then check them
+        check_active_trades()
+        msg = "Checked " + str(len(active_trades)) + " active trades at " + now_ist().strftime("%H:%M:%S")
+        send_telegram("🔄 *Manual Check Triggered*\n" + msg)
+        return {"status": "ok", "message": msg}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.route("/reload")
+def manual_reload():
+    """Manually reload OPEN trades from sheet into memory"""
+    try:
+        before = len(active_trades)
+        reload_active_trades()
+        after = len(active_trades)
+        msg = "Reloaded " + str(after) + " trades (was " + str(before) + ")"
+        send_telegram("🔄 *Trades Reloaded from Sheet*\n" + msg)
+        return {"status": "ok", "message": msg}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.route("/expire")
+def manual_expire():
+    """Manually mark all OPEN trades as EXPIRED in sheet"""
+    try:
+        sheet = get_sheet()
+        if sheet is None:
+            return {"status": "error", "message": "Sheet not available"}
+        all_rows = sheet.get_all_values()
+        expired = 0
+        for i, row in enumerate(all_rows):
+            if len(row) > 13 and row[13] == "OPEN":
+                sheet.update_cell(i + 1, 14, "EXPIRED")
+                expired += 1
+        active_trades.clear()
+        msg = "Marked " + str(expired) + " trades as EXPIRED"
+        send_telegram("📋 *Manual Expire Done*\n" + msg)
+        return {"status": "ok", "message": msg}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 def reload_active_trades():
