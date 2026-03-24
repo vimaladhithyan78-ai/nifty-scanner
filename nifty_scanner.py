@@ -702,6 +702,19 @@ def check_active_trades():
 # ══════════════════════════════════════════════════════
 def run_scan():
     now_str = now_ist().strftime("%Y-%m-%d %H:%M:%S")
+    now     = now_ist()
+
+    # Auto close all positions at 3:15 PM IST
+    close_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
+    if now >= close_time and now.weekday() < 5:
+        # Check if we already closed today
+        today_close_key = f"closed_{now.date()}"
+        if today_close_key not in alerted_today:
+            alerted_today[today_close_key] = True
+            print(f"[{now_str}] 🔔 3:15 PM — closing all positions")
+            market_close_message()
+        return
+
     if not is_market_open():
         print(f"[{now_str}] ⏸️  Market closed.")
         return
