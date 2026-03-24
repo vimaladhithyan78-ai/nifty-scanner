@@ -744,8 +744,11 @@ def run_scan():
                     print("⏭️")
                 continue
 
-            if key not in alerted_today:
+            # Block ANY signal for same stock same day (prevents duplicates)
+            day_key = f"{name}_{datetime.now().date()}"
+            if key not in alerted_today and day_key not in alerted_today:
                 alerted_today[key] = True
+                alerted_today[day_key] = True
                 if name in pullback_waiting:
                     del pullback_waiting[name]
                 print(f"🚨 {entry_type} {direction}! {result['score']}/7")
