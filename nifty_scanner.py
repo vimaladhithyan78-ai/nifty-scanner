@@ -15,6 +15,7 @@ import yfinance as yf
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+import json
 import pandas as pd
 import requests
 import schedule
@@ -60,47 +61,51 @@ PULLBACK_SCORE     = 5
 # ══════════════════════════════════════════════════════
 #  45 STOCKS
 # ══════════════════════════════════════════════════════
+# Best intraday stocks — high volume, affordable for Rs.5000 capital
+# Removed: expensive + low volume + slow movers
 STOCKS = {
-    "RELIANCE":   "RELIANCE.NS",
-    "HDFCBANK":   "HDFCBANK.NS",
-    "INFY":       "INFY.NS",
-    "ICICIBANK":  "ICICIBANK.NS",
-    "ITC":        "ITC.NS",
-    "KOTAKBANK":  "KOTAKBANK.NS",
-    "SBIN":       "SBIN.NS",
-    "BHARTIARTL": "BHARTIARTL.NS",
-    "AXISBANK":   "AXISBANK.NS",
-    "SUNPHARMA":  "SUNPHARMA.NS",
-    "WIPRO":      "WIPRO.NS",
-    "HCLTECH":    "HCLTECH.NS",
-    "BAJFINANCE": "BAJFINANCE.NS",
-    "DRREDDY":    "DRREDDY.NS",
-    "NTPC":       "NTPC.NS",
-    "POWERGRID":  "POWERGRID.NS",
-    "TATAMOTORS": "TATAMOTORS.NS",
-    "TATASTEEL":  "TATASTEEL.NS",
-    "ADANIPORTS": "ADANIPORTS.NS",
-    "CIPLA":      "CIPLA.NS",
-    "JSWSTEEL":   "JSWSTEEL.NS",
-    "HINDALCO":   "HINDALCO.NS",
-    "BPCL":       "BPCL.NS",
-    "ONGC":       "ONGC.NS",
-    "COALINDIA":  "COALINDIA.NS",
-    "BAJAJFINSV": "BAJAJFINSV.NS",
-    "HDFCLIFE":   "HDFCLIFE.NS",
-    "SBILIFE":    "SBILIFE.NS",
-    "SHRIRAMFIN": "SHRIRAMFIN.NS",
-    "TATACONSUM": "TATACONSUM.NS",
-    "TECHM":      "TECHM.NS",
-    "INDUSINDBK": "INDUSINDBK.NS",
-    "BANDHANBNK": "BANDHANBNK.NS",
-    "FEDERALBNK": "FEDERALBNK.NS",
-    "IDFCFIRSTB": "IDFCFIRSTB.NS",
-    "PNB":        "PNB.NS",
+    "RELIANCE":   "RELIANCE.NS",    # ~Rs.1400
+    "HDFCBANK":   "HDFCBANK.NS",    # ~Rs.1700
+    "INFY":       "INFY.NS",        # ~Rs.1500
+    "ICICIBANK":  "ICICIBANK.NS",   # ~Rs.1300
+    "ITC":        "ITC.NS",         # ~Rs.415
+    "KOTAKBANK":  "KOTAKBANK.NS",   # ~Rs.1900
+    "SBIN":       "SBIN.NS",        # ~Rs.800
+    "BHARTIARTL": "BHARTIARTL.NS",  # ~Rs.1700
+    "AXISBANK":   "AXISBANK.NS",    # ~Rs.1100
+    "SUNPHARMA":  "SUNPHARMA.NS",   # ~Rs.1700
+    "WIPRO":      "WIPRO.NS",       # ~Rs.250
+    "HCLTECH":    "HCLTECH.NS",     # ~Rs.1500
+    "BAJFINANCE": "BAJFINANCE.NS",  # ~Rs.850
+    "DRREDDY":    "DRREDDY.NS",     # ~Rs.1200
+    "NTPC":       "NTPC.NS",        # ~Rs.330
+    "POWERGRID":  "POWERGRID.NS",   # ~Rs.300
+    "TATAMOTORS": "TATAMOTORS.NS",  # ~Rs.650
+    "TATASTEEL":  "TATASTEEL.NS",   # ~Rs.140
+    "ADANIPORTS": "ADANIPORTS.NS",  # ~Rs.1200
+    "CIPLA":      "CIPLA.NS",       # ~Rs.1500
+    "JSWSTEEL":   "JSWSTEEL.NS",    # ~Rs.950
+    "HINDALCO":   "HINDALCO.NS",    # ~Rs.600
+    "BPCL":       "BPCL.NS",        # ~Rs.280
+    "ONGC":       "ONGC.NS",        # ~Rs.240
+    "COALINDIA":  "COALINDIA.NS",   # ~Rs.400
+    "BAJAJFINSV": "BAJAJFINSV.NS",  # ~Rs.1900
+    "HDFCLIFE":   "HDFCLIFE.NS",    # ~Rs.700
+    "SBILIFE":    "SBILIFE.NS",     # ~Rs.1500
+    "SHRIRAMFIN": "SHRIRAMFIN.NS",  # ~Rs.600
+    "TATACONSUM": "TATACONSUM.NS",  # ~Rs.900
+    "TECHM":      "TECHM.NS",       # ~Rs.1400
+    "INDUSINDBK": "INDUSINDBK.NS",  # ~Rs.700
+    "BANDHANBNK": "BANDHANBNK.NS",  # ~Rs.160
+    "FEDERALBNK": "FEDERALBNK.NS",  # ~Rs.200
+    "IDFCFIRSTB": "IDFCFIRSTB.NS",  # ~Rs.63
+    "PNB":        "PNB.NS",         # ~Rs.110
+    # Added back — high volume intraday stocks
     "TCS":        "TCS.NS",
     "LT":         "LT.NS",
     "MM":         "M&M.NS",
     "TITAN":      "TITAN.NS",
+    # New high volume Nifty 500 stocks
     "BANKBARODA": "BANKBARODA.NS",
     "IOC":        "IOC.NS",
     "TATAPOWER":  "TATAPOWER.NS",
@@ -175,14 +180,14 @@ def log_to_sheet(sig: dict):
                 "Date", "Time", "Stock",
                 "Entry", "SL", "TP1", "TP2", "RR",
                 "Score", "ADX", "Qty",
-                "TP Hit", "SL Hit", "Result", "P&L (Rs)", "Exit Price"   # ← added Exit Price
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ])
         elif existing[0][0] != "Date":
             sheet.insert_row([
                 "Date", "Time", "Stock",
                 "Entry", "SL", "TP1", "TP2", "RR",
                 "Score", "ADX", "Qty",
-                "TP Hit", "SL Hit", "Result", "P&L (Rs)", "Exit Price"   # ← added Exit Price
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
             ], 1)
 
         now = now_ist()
@@ -211,7 +216,6 @@ def log_to_sheet(sig: dict):
             "",      # SL Hit
             "OPEN",  # Result
             "",      # P&L
-            "",      # Exit Price ← new empty placeholder
         ]
         sheet.append_row(row)
         sig["sheet_row"] = len(sheet.get_all_values())
@@ -305,7 +309,7 @@ def calc_adx(df, period=14):
 # ══════════════════════════════════════════════════════
 def scan_stock(name: str, ticker: str):
     try:
-        # Retry up to 2 times if rate limited
+        # Retry up to 3 times if rate limited
         df = None
         for attempt in range(2):
             try:
@@ -318,8 +322,15 @@ def scan_stock(name: str, ticker: str):
                 time.sleep(2)
         if df is None or len(df) < 30:
             return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+        try:
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+        except Exception:
+            return None
+        # Verify required columns exist
+        required = ["Close", "High", "Low", "Open", "Volume"]
+        if not all(col in df.columns for col in required):
+            return None
 
         df5 = None
         for attempt in range(2):
@@ -331,10 +342,14 @@ def scan_stock(name: str, ticker: str):
                 time.sleep(1)
             except Exception:
                 time.sleep(2)
-        if df5 is None:
+        if df5 is None or len(df5) < 5:
             df5 = pd.DataFrame()
-        if isinstance(df5.columns, pd.MultiIndex):
-            df5.columns = df5.columns.get_level_values(0)
+        else:
+            try:
+                if isinstance(df5.columns, pd.MultiIndex):
+                    df5.columns = df5.columns.get_level_values(0)
+            except Exception:
+                df5 = pd.DataFrame()
 
         close = df["Close"]
         vol   = df["Volume"]
@@ -403,26 +418,32 @@ def scan_stock(name: str, ticker: str):
         entry_type = None
         direction  = None
 
+        # Get last signal state for this stock (like Pine Script lastSignalState)
         last_state = last_signal_state.get(name, 0)
 
+        # BUY: crossover + score >= 6 + last signal was not already BUY
         if buy_cross and bull >= DIRECT_ENTRY_SCORE and last_state <= 0:
             entry_type = "DIRECT"
             direction  = "BUY"
             last_signal_state[name] = 1
 
+        # SELL: crossunder + score >= 6 + last signal was not already SELL
         elif sell_cross and bear >= DIRECT_ENTRY_SCORE and last_state >= 0:
             entry_type = "DIRECT"
             direction  = "SELL"
             last_signal_state[name] = -1
 
+        # WATCH PULLBACK: crossover + score == 5 + last was not BUY
         elif buy_cross and bull == PULLBACK_SCORE and last_state <= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "BUY"
 
+        # WATCH PULLBACK: crossunder + score == 5 + last was not SELL
         elif sell_cross and bear == PULLBACK_SCORE and last_state >= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "SELL"
 
+        # PULLBACK CONFIRMED
         elif name in pullback_waiting:
             pw = pullback_waiting[name]
             if pw["direction"] == "BUY" and buy_pullback:
@@ -445,11 +466,11 @@ def scan_stock(name: str, ticker: str):
 
         # Dynamic ATR based on ADX strength
         if adx_c > 30:
-            dynamic_atr = 1.0
+            dynamic_atr = 1.0   # Strong trend — tight SL, more qty
         elif adx_c >= 25:
-            dynamic_atr = 1.5
+            dynamic_atr = 1.5   # Normal trend — medium SL
         else:
-            return None  # Weak trend — skip
+            return None         # Weak trend — skip signal
 
         risk = atr_c * dynamic_atr
         if direction == "BUY":
@@ -557,37 +578,29 @@ def is_market_open() -> bool:
 #  TP / SL MONITOR
 # ══════════════════════════════════════════════════════
 
-def update_sheet_result(name, result_type, pnl, exit_price=0):
-    """Update the sheet row when TP or SL is hit — also writes Exit Price (col 16).
-    Searches for OPEN or WIN so TP2 can still find the row after TP1 set it to WIN."""
+def update_sheet_result(name, result_type, pnl):
+    """Update the sheet row when TP or SL is hit"""
     try:
         sheet = get_sheet()
         if sheet is None:
             return
+        # Find the row with this stock that has OPEN status
         all_rows = sheet.get_all_values()
         for i, row in enumerate(all_rows):
-            if len(row) <= 13:
-                continue
-            if not row[2].startswith(name):
-                continue
-            # TP2 arrives after TP1 already set Result to "WIN" — accept both states
-            if row[13] not in ("OPEN", "WIN"):
-                continue
-            row_num = i + 1
-            if result_type.startswith("TP"):
-                sheet.update_cell(row_num, 12, result_type)  # TP Hit
-                sheet.update_cell(row_num, 13, "")           # SL Hit (clear)
-                sheet.update_cell(row_num, 14, "WIN")        # Result
-                sheet.update_cell(row_num, 15, pnl)          # P&L
-                sheet.update_cell(row_num, 16, exit_price)   # Exit Price
-            elif result_type == "SL":
-                sheet.update_cell(row_num, 12, "")           # TP Hit (clear)
-                sheet.update_cell(row_num, 13, "SL HIT")     # SL Hit
-                sheet.update_cell(row_num, 14, "LOSS")       # Result
-                sheet.update_cell(row_num, 15, pnl)          # P&L
-                sheet.update_cell(row_num, 16, exit_price)   # Exit Price
-            print("  ✅ Sheet result updated: " + name + " " + result_type)
-            break
+            if len(row) > 13 and row[2].startswith(name) and row[13] == "OPEN":
+                row_num = i + 1
+                if result_type.startswith("TP"):
+                    sheet.update_cell(row_num, 12, result_type)  # TP Hit col
+                    sheet.update_cell(row_num, 13, "")           # SL Hit col
+                    sheet.update_cell(row_num, 14, "WIN")        # Result col
+                    sheet.update_cell(row_num, 15, pnl)          # P&L col
+                elif result_type == "SL":
+                    sheet.update_cell(row_num, 12, "")           # TP Hit col
+                    sheet.update_cell(row_num, 13, "SL HIT")     # SL Hit col
+                    sheet.update_cell(row_num, 14, "LOSS")       # Result col
+                    sheet.update_cell(row_num, 15, pnl)          # P&L col
+                print("  ✅ Sheet result updated: " + name + " " + result_type)
+                break
     except Exception as e:
         print("  ❌ Sheet update error: " + str(e))
 
@@ -619,10 +632,12 @@ def check_active_trades():
             sl        = trade["sl"]
             tp1       = trade["tp1"]
             tp2       = trade["tp2"]
+
+
             qty       = trade["qty"]
             t_str     = now_ist().strftime("%H:%M:%S")
 
-            # ── SL Hit ──────────────────────────────────────
+            # SL Hit
             sl_hit = (direction == "BUY" and low <= sl) or (direction == "SELL" and high >= sl)
             if sl_hit:
                 loss = round(abs(entry - sl) * qty, 2)
@@ -635,17 +650,17 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
-                update_sheet_result(name, "SL", -loss, exit_price=sl)   # ← exit at SL price
+                update_sheet_result(name, "SL", -loss)
                 to_close.append(name)
                 continue
 
-            # ── TP1 Hit ─────────────────────────────────────
+            # TP1
             tp1_hit = (direction == "BUY" and high >= tp1) or (direction == "SELL" and low <= tp1)
             if tp1_hit and not trade.get("t1hit"):
                 trade["t1hit"] = True
                 qty_exit = max(1, int(qty * 0.5))
                 profit = round(abs(tp1 - entry) * qty_exit, 2)
-                trade["tp1_profit"] = profit
+                trade["tp1_profit"] = profit  # save for total calculation
                 msg = ("TP1 HIT - " + name + "\n"
                     + "Direction: " + direction + "\n"
                     + "Entry: " + str(entry) + "\n"
@@ -656,13 +671,13 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
-                update_sheet_result(name, "TP1", profit, exit_price=tp1)  # ← exit at TP1 price
+                update_sheet_result(name, "TP1", profit)
 
-            # ── TP2 Hit — Full Close ─────────────────────────
+            # TP2 - Full Close
             tp2_hit = (direction == "BUY" and high >= tp2) or (direction == "SELL" and low <= tp2)
             if tp2_hit and trade.get("t1hit") and not trade.get("t2hit"):
                 trade["t2hit"] = True
-                qty_exit   = max(1, int(qty * 0.5))
+                qty_exit = max(1, int(qty * 0.5))
                 tp2_profit = round(abs(tp2 - entry) * qty_exit, 2)
                 tp1_profit = trade.get("tp1_profit", 0)
                 total_profit = round(tp1_profit + tp2_profit, 2)
@@ -677,8 +692,12 @@ def check_active_trades():
                     + "Time: " + t_str + "\n"
                     + "Chart: https://www.tradingview.com/chart/?symbol=NSE:" + name)
                 send_telegram(msg)
-                update_sheet_result(name, "TP2", total_profit, exit_price=tp2)  # ← exit at TP2 price
+                update_sheet_result(name, "TP2", total_profit)
                 to_close.append(name)
+
+
+
+
 
         except Exception as e:
             print("  Error checking trade " + name + ": " + str(e))
@@ -699,6 +718,7 @@ def run_scan():
     # Auto close all positions at 3:15 PM IST
     close_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
     if now >= close_time and now.weekday() < 5:
+        # Check if we already closed today
         today_close_key = f"closed_{now.date()}"
         if today_close_key not in alerted_today:
             alerted_today[today_close_key] = True
@@ -710,6 +730,7 @@ def run_scan():
         print(f"[{now_str}] ⏸️  Market closed.")
         return
 
+    # First check existing active trades for TP/SL hits
     check_active_trades()
 
     print(f"\n{'='*52}")
@@ -720,7 +741,7 @@ def run_scan():
 
     for name, ticker in STOCKS.items():
         print(f"  {name}...", end=" ", flush=True)
-        time.sleep(1)
+        time.sleep(1)  # delay to avoid Yahoo Finance rate limiting
         result = scan_stock(name, ticker)
 
         if result:
@@ -747,6 +768,7 @@ def run_scan():
                     print("⏭️")
                 continue
 
+            # Block ANY signal for same stock same day (prevents duplicates)
             day_key = f"{name}_{datetime.now().date()}"
             if key not in alerted_today and day_key not in alerted_today:
                 alerted_today[key] = True
@@ -756,14 +778,14 @@ def run_scan():
                 print(f"🚨 {entry_type} {direction}! {result['score']}/7")
                 signals_found.append(result)
                 send_telegram(format_signal(result))
-
+                # If PULLBACK confirmed — update existing WATCH row
                 if entry_type == "PULLBACK":
                     try:
                         sheet = get_sheet()
                         if sheet:
                             all_rows = sheet.get_all_values()
                             for i, row in enumerate(all_rows):
-                                if len(row) > 3 and row[2].startswith(name) and row[13] == "OPEN":
+                                if len(row) > 3 and row[2] == name and row[13] == "OPEN":
                                     sheet.update_cell(i + 1, 4,  result["price"])
                                     sheet.update_cell(i + 1, 5,  result["sl"])
                                     sheet.update_cell(i + 1, 6,  result["tp1"])
@@ -774,7 +796,7 @@ def run_scan():
                         print("  ❌ Sheet pullback update error: " + str(e))
                 else:
                     log_to_sheet(result)
-
+                # Add to active trades for TP/SL monitoring
                 active_trades[name] = {
                     "direction": direction,
                     "entry":     result["price"],
@@ -838,25 +860,21 @@ def market_close_message():
             for i, row in enumerate(all_rows):
                 if len(row) > 13 and row[13] == "OPEN":
                     try:
+                        # Get stock name without emoji
                         name      = row[2].split(" ")[0]
-                        if "🟢" in row[2]:
-                            direction = "BUY"
-                        elif "🔴" in row[2]:
-                            direction = "SELL"
-                        else:
-                            print("  ⚠️ Could not detect direction for: " + row[2] + " — skipping")
-                            continue
+                        # Detect direction from emoji
+                        direction = "BUY" if "🟢" in row[2] else "SELL"
                         entry     = float(row[3]) if row[3] else 0
                         qty       = int(row[10]) if row[10] else 0
                         pnl       = 0.0
-                        close_px  = 0.0
 
+                        # Fetch current closing price
                         ticker = STOCKS.get(name)
                         if ticker and entry > 0 and qty > 0:
                             df = yf.download(ticker, period="1d",
-                                             interval="1m",
-                                             progress=False,
-                                             auto_adjust=True)
+                                           interval="1m",
+                                           progress=False,
+                                           auto_adjust=True)
                             if df is not None and len(df) > 0:
                                 if isinstance(df.columns, pd.MultiIndex):
                                     df.columns = df.columns.get_level_values(0)
@@ -866,19 +884,19 @@ def market_close_message():
                                 else:
                                     pnl = round((entry - close_px) * qty, 2)
 
-                        # Update sheet — mark EXPIRED + P&L + Exit Price
+                        # Update sheet
                         sheet.update_cell(i + 1, 14, "EXPIRED")
                         sheet.update_cell(i + 1, 15, pnl)
-                        sheet.update_cell(i + 1, 16, round(close_px, 2) if close_px else "")  # ← Exit Price
                         total_pnl += pnl
                         expired   += 1
                         if pnl > 0:
                             wins += 1
                         elif pnl < 0:
                             losses += 1
-                        print("  EXPIRED: " + name + " Exit: " + str(round(close_px, 2)) + " P&L: Rs." + str(pnl))
+                        print("  EXPIRED: " + name + " P&L: Rs." + str(pnl))
 
                     except Exception as ex:
+                        # Even if price fetch fails mark as EXPIRED
                         try:
                             sheet.update_cell(i + 1, 14, "EXPIRED")
                         except:
@@ -890,6 +908,7 @@ def market_close_message():
 
     active_trades.clear()
 
+    # Send day summary
     send_telegram(
         "🔕 *Market Closed — Scanner Paused*\n"
         f"🕐 {now_ist().strftime('%H:%M:%S')}\n"
@@ -914,19 +933,22 @@ def home():
 @app.route("/status")
 def status():
     return {
-        "status":        "running",
-        "stocks":        len(STOCKS),
-        "timeframe":     TIMEFRAME,
-        "capital":       CAPITAL,
-        "market":        "open" if is_market_open() else "closed",
+        "status":       "running",
+        "stocks":       len(STOCKS),
+        "timeframe":    TIMEFRAME,
+        "capital":      CAPITAL,
+        "market":       "open" if is_market_open() else "closed",
         "active_trades": len(active_trades),
-        "time":          now_ist().strftime("%Y-%m-%d %H:%M:%S")
+        "time":         now_ist().strftime("%Y-%m-%d %H:%M:%S")
     }
 
 @app.route("/check")
 def manual_check():
+    """Manually trigger TP/SL check for all OPEN trades in sheet"""
     try:
+        # Reload trades from sheet first
         reload_active_trades()
+        # Then check them
         check_active_trades()
         msg = "Checked " + str(len(active_trades)) + " active trades at " + now_ist().strftime("%H:%M:%S")
         send_telegram("🔄 *Manual Check Triggered*\n" + msg)
@@ -936,6 +958,7 @@ def manual_check():
 
 @app.route("/reload")
 def manual_reload():
+    """Manually reload OPEN trades from sheet into memory"""
     try:
         before = len(active_trades)
         reload_active_trades()
@@ -948,6 +971,7 @@ def manual_reload():
 
 @app.route("/expire")
 def manual_expire():
+    """Manually mark all OPEN trades as EXPIRED with P&L"""
     try:
         market_close_message()
         return {"status": "ok", "message": "Expire done with P&L calculated"}
@@ -956,13 +980,7 @@ def manual_expire():
 
 
 def reload_active_trades():
-    """Load all OPEN trades from Google Sheet into memory on startup.
-
-    Sheet columns (0-indexed):
-      0=Date  1=Time  2=Stock  3=Entry  4=SL  5=TP1  6=TP2  7=RR
-      8=Score  9=ADX  10=Qty  11=TP Hit  12=SL Hit  13=Result
-      14=P&L  15=Exit Price
-    """
+    """Load all OPEN trades from Google Sheet into memory on startup"""
     try:
         sheet = get_sheet()
         if sheet is None:
@@ -970,47 +988,41 @@ def reload_active_trades():
         all_rows = sheet.get_all_values()
         count = 0
         for i, row in enumerate(all_rows):
+            # Skip header row
             if i == 0:
-                continue  # skip header
-            if len(row) < 14:
                 continue
-            if row[13] != "OPEN":
-                continue
-            try:
-                # Stock cell contains name + emoji e.g. "HDFCBANK 🔴"
-                name      = row[2].split(" ")[0]
-                if "🟢" in row[2]:
-                    direction = "BUY"
-                elif "🔴" in row[2]:
-                    direction = "SELL"
-                else:
-                    print("  ⚠️ Could not detect direction for: " + row[2] + " — skipping")
+            # Check if Result column is OPEN
+            if len(row) > 20 and row[20] == "OPEN":
+                try:
+                    name      = row[2]
+                    direction = row[3]
+                    entry     = float(row[5])
+                    sl        = float(row[6])
+                    tp1       = float(row[5])
+                    tp2       = float(row[6])
+
+                    qty       = int(row[18]) if row[18] else 1
+                    if name and direction and entry:
+                        active_trades[name] = {
+                            "direction": direction,
+                            "entry":     entry,
+                            "sl":        sl,
+                            "tp1":       tp1,
+                            "tp2":       tp2,
+                            "qty":       qty,
+                            "t1hit":     False,
+                            "t2hit":     False,
+                        }
+                        count += 1
+                except Exception:
                     continue
-                entry     = float(row[3])   # Entry price
-                sl        = float(row[4])   # SL
-                tp1       = float(row[5])   # TP1
-                tp2       = float(row[6])   # TP2
-                qty       = int(row[10]) if row[10] else 1   # Qty
-                if name and entry:
-                    active_trades[name] = {
-                        "direction": direction,
-                        "entry":     entry,
-                        "sl":        sl,
-                        "tp1":       tp1,
-                        "tp2":       tp2,
-                        "qty":       qty,
-                        "t1hit":     False,
-                        "t2hit":     False,
-                    }
-                    count += 1
-            except Exception:
-                continue
         if count > 0:
             print("  Reloaded " + str(count) + " active trades from sheet")
     except Exception as e:
         print("  Reload error: " + str(e))
 
 def run_scheduler():
+    # Reload any open trades from sheet on startup
     reload_active_trades()
 
     schedule.every().day.at("03:45").do(market_open_greeting)  # 9:15 AM IST
