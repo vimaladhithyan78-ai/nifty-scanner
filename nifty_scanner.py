@@ -61,56 +61,37 @@ PULLBACK_SCORE     = 5
 # ══════════════════════════════════════════════════════
 #  45 STOCKS
 # ══════════════════════════════════════════════════════
-# Best intraday stocks — high volume, affordable for Rs.5000 capital
-# Removed: expensive + low volume + slow movers
+# Profitable stocks only — based on 15 day performance analysis
+# Removed 17 losing stocks: ADANIPORTS, MM, SAIL, DRREDDY, AXISBANK etc
 STOCKS = {
-    "RELIANCE":   "RELIANCE.NS",    # ~Rs.1400
-    "HDFCBANK":   "HDFCBANK.NS",    # ~Rs.1700
-    "INFY":       "INFY.NS",        # ~Rs.1500
-    "ICICIBANK":  "ICICIBANK.NS",   # ~Rs.1300
-    "ITC":        "ITC.NS",         # ~Rs.415
-    "KOTAKBANK":  "KOTAKBANK.NS",   # ~Rs.1900
-    "SBIN":       "SBIN.NS",        # ~Rs.800
-    "BHARTIARTL": "BHARTIARTL.NS",  # ~Rs.1700
-    "AXISBANK":   "AXISBANK.NS",    # ~Rs.1100
-    "SUNPHARMA":  "SUNPHARMA.NS",   # ~Rs.1700
-    "WIPRO":      "WIPRO.NS",       # ~Rs.250
-    "HCLTECH":    "HCLTECH.NS",     # ~Rs.1500
-    "BAJFINANCE": "BAJFINANCE.NS",  # ~Rs.850
-    "DRREDDY":    "DRREDDY.NS",     # ~Rs.1200
-    "NTPC":       "NTPC.NS",        # ~Rs.330
-    "POWERGRID":  "POWERGRID.NS",   # ~Rs.300
-    "TATAMOTORS": "TATAMOTORS.NS",  # ~Rs.650
-    "TATASTEEL":  "TATASTEEL.NS",   # ~Rs.140
-    "ADANIPORTS": "ADANIPORTS.NS",  # ~Rs.1200
-    "CIPLA":      "CIPLA.NS",       # ~Rs.1500
-    "JSWSTEEL":   "JSWSTEEL.NS",    # ~Rs.950
-    "HINDALCO":   "HINDALCO.NS",    # ~Rs.600
-    "BPCL":       "BPCL.NS",        # ~Rs.280
-    "ONGC":       "ONGC.NS",        # ~Rs.240
-    "COALINDIA":  "COALINDIA.NS",   # ~Rs.400
-    "BAJAJFINSV": "BAJAJFINSV.NS",  # ~Rs.1900
-    "HDFCLIFE":   "HDFCLIFE.NS",    # ~Rs.700
-    "SBILIFE":    "SBILIFE.NS",     # ~Rs.1500
-    "SHRIRAMFIN": "SHRIRAMFIN.NS",  # ~Rs.600
-    "TATACONSUM": "TATACONSUM.NS",  # ~Rs.900
-    "TECHM":      "TECHM.NS",       # ~Rs.1400
-    "INDUSINDBK": "INDUSINDBK.NS",  # ~Rs.700
-    "BANDHANBNK": "BANDHANBNK.NS",  # ~Rs.160
-    "FEDERALBNK": "FEDERALBNK.NS",  # ~Rs.200
-    "IDFCFIRSTB": "IDFCFIRSTB.NS",  # ~Rs.63
-    "PNB":        "PNB.NS",         # ~Rs.110
-    # Added back — high volume intraday stocks
-    "TCS":        "TCS.NS",
-    "LT":         "LT.NS",
-    "MM":         "M&M.NS",
-    "TITAN":      "TITAN.NS",
-    # New high volume Nifty 500 stocks
-    "BANKBARODA": "BANKBARODA.NS",
-    "IOC":        "IOC.NS",
-    "TATAPOWER":  "TATAPOWER.NS",
-    "SAIL":       "SAIL.NS",
-    "IRFC":       "IRFC.NS",
+    # ── TOP PERFORMERS ──────────────────
+    "HDFCLIFE":   "HDFCLIFE.NS",    # W:3 L:0 +Rs.3120 ⭐
+    "SBIN":       "SBIN.NS",        # W:3 L:2 +Rs.2770 ⭐
+    "NTPC":       "NTPC.NS",        # W:2 L:0 +Rs.1947 ⭐
+    "TATACONSUM": "TATACONSUM.NS",  # W:3 L:3 +Rs.1799
+    "ICICIBANK":  "ICICIBANK.NS",   # W:3 L:1 +Rs.1593 ⭐
+    "BAJAJFINSV": "BAJAJFINSV.NS",  # W:3 L:1 +Rs.1353
+    "PNB":        "PNB.NS",         # W:4 L:3 +Rs.1310
+    "FEDERALBNK": "FEDERALBNK.NS",  # W:2 L:2 +Rs.1164
+    "ITC":        "ITC.NS",         # W:1 L:1 +Rs.1164
+    "HDFCBANK":   "HDFCBANK.NS",    # W:2 L:1 +Rs.1106
+    # ── GOOD PERFORMERS ─────────────────
+    "TATASTEEL":  "TATASTEEL.NS",   # W:2 L:2 +Rs.905
+    "KOTAKBANK":  "KOTAKBANK.NS",   # W:2 L:1 +Rs.859
+    "CIPLA":      "CIPLA.NS",       # W:2 L:1 +Rs.847
+    "BAJFINANCE": "BAJFINANCE.NS",  # W:2 L:2 +Rs.698
+    "RELIANCE":   "RELIANCE.NS",    # W:2 L:1 +Rs.487
+    "POWERGRID":  "POWERGRID.NS",   # W:2 L:2 +Rs.347
+    "INFY":       "INFY.NS",        # W:1 L:2 +Rs.323
+    "IOC":        "IOC.NS",         # W:2 L:2 +Rs.266
+    "IDFCFIRSTB": "IDFCFIRSTB.NS",  # W:2 L:2 +Rs.256
+    "TATAPOWER":  "TATAPOWER.NS",   # W:2 L:2 +Rs.250
+    "BANKBARODA": "BANKBARODA.NS",  # W:2 L:1 +Rs.202
+    "HINDALCO":   "HINDALCO.NS",    # W:2 L:1 +Rs.165
+    "SUNPHARMA":  "SUNPHARMA.NS",   # W:2 L:2 +Rs.148
+    "TECHM":      "TECHM.NS",       # W:2 L:2 +Rs.131
+    "WIPRO":      "WIPRO.NS",       # W:3 L:2 +Rs.79
+    "COALINDIA":  "COALINDIA.NS",   # W:1 L:0 +Rs.37
 }
 
 # ══════════════════════════════════════════════════════
