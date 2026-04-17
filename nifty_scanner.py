@@ -434,13 +434,8 @@ def scan_stock(name: str, ticker: str):
                 bull_pct   = pw["pct"]
                 bias       = pw["bias"]
                 last_signal_state[name] = 1
-            elif pw["direction"] == "SELL" and sell_pullback:
-                entry_type = "PULLBACK"
-                direction  = "SELL"
-                bear       = pw["score"]
-                bear_pct   = pw["pct"]
-                bias       = pw["bias"]
-                last_signal_state[name] = -1
+            # SELL pullback disabled
+            # elif pw["direction"] == "SELL": DISABLED
 
         if entry_type is None:
             return None
@@ -695,6 +690,13 @@ def check_active_trades():
 def run_scan():
     now_str = now_ist().strftime("%Y-%m-%d %H:%M:%S")
     now     = now_ist()
+
+    # Skip first 5 minutes — low win rate at open (33%)
+    open_time  = now.replace(hour=9,  minute=20, second=0, microsecond=0)
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    if market_open <= now < open_time and now.weekday() < 5:
+        print(f"[{now_str}] ⏸️  Waiting 5 min after open...")
+        return
 
     # Auto close all positions at 3:15 PM IST
     close_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
