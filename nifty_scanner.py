@@ -87,7 +87,6 @@ STOCKS = {
     "IDFCFIRSTB": "IDFCFIRSTB.NS",  # W:2 L:2 +Rs.256
     "TATAPOWER":  "TATAPOWER.NS",   # W:2 L:2 +Rs.250
     "BANKBARODA": "BANKBARODA.NS",  # W:2 L:1 +Rs.202
-    "HINDALCO":   "HINDALCO.NS",    # W:2 L:1 +Rs.165
     "SUNPHARMA":  "SUNPHARMA.NS",   # W:2 L:2 +Rs.148
     "TECHM":      "TECHM.NS",       # W:2 L:2 +Rs.131
     "WIPRO":      "WIPRO.NS",       # W:3 L:2 +Rs.79
@@ -408,21 +407,14 @@ def scan_stock(name: str, ticker: str):
             direction  = "BUY"
             last_signal_state[name] = 1
 
-        # SELL: crossunder + score >= 6 + last signal was not already SELL
-        elif sell_cross and bear >= DIRECT_ENTRY_SCORE and last_state >= 0:
-            entry_type = "DIRECT"
-            direction  = "SELL"
-            last_signal_state[name] = -1
+        # SELL signals DISABLED — BUY only strategy (65% win rate vs 18% for SELL)
 
         # WATCH PULLBACK: crossover + score == 5 + last was not BUY
         elif buy_cross and bull == PULLBACK_SCORE and last_state <= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "BUY"
 
-        # WATCH PULLBACK: crossunder + score == 5 + last was not SELL
-        elif sell_cross and bear == PULLBACK_SCORE and last_state >= 0:
-            entry_type = "WATCH_PULLBACK"
-            direction  = "SELL"
+        # WATCH PULLBACK SELL: DISABLED
 
         # PULLBACK CONFIRMED
         elif name in pullback_waiting:
@@ -975,12 +967,12 @@ def reload_active_trades():
             if i == 0:
                 continue
             # Check if Result column is OPEN
-            if len(row) > 20 and row[20] == "OPEN":
+            if len(row) > 13 and row[13] == "OPEN":
                 try:
                     name      = row[2]
                     direction = row[3]
-                    entry     = float(row[5])
-                    sl        = float(row[6])
+                    entry     = float(row[3])
+                    sl        = float(row[4])
                     tp1       = float(row[5])
                     tp2       = float(row[6])
 
