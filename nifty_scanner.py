@@ -690,21 +690,18 @@ def run_scan():
     if market_open <= now < open_time and now.weekday() < 5:
         print(f"[{now_str}] ⏸️  Waiting 5 min after open...")
         return
-    # No new signals after 3:00 PM — not enough time for trade
+    # After 3:00 PM — no new signals, just monitor and close
     if now >= cutoff_time and now.weekday() < 5:
-        check_active_trades()  # still monitor existing trades
-        print(f"[{now_str}] ⏸️  After 3 PM — no new signals.")
-        return
-
-    # Auto close all positions at 3:15 PM IST
-    close_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
-    if now >= close_time and now.weekday() < 5:
-        # Check if we already closed today
-        today_close_key = f"closed_{now.date()}"
-        if today_close_key not in alerted_today:
-            alerted_today[today_close_key] = True
-            print(f"[{now_str}] 🔔 3:15 PM — closing all positions")
-            market_close_message()
+        close_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
+        if now >= close_time:
+            today_close_key = f"closed_{now.date()}"
+            if today_close_key not in alerted_today:
+                alerted_today[today_close_key] = True
+                print(f"[{now_str}] 🔔 3:15 PM — closing all positions")
+                market_close_message()
+        else:
+            check_active_trades()  # monitor active trades 3:00-3:15 PM
+            print(f"[{now_str}] ⏸️  After 3 PM — no new signals.")
         return
 
     if not is_market_open():
@@ -975,14 +972,13 @@ def reload_active_trades():
             # Check if Result column is OPEN
             if len(row) > 13 and row[13] == "OPEN":
                 try:
-                    name      = row[2]
-                    direction = row[3]
-                    entry     = float(row[3])
-                    sl        = float(row[4])
-                    tp1       = float(row[5])
-                    tp2       = float(row[6])
-
-                    qty       = int(row[18]) if row[18] else 1
+                    name      = row[2].split(" ")[0]  # remove emoji
+                    direction = "BUY" if "🟢" in row[2] else "SELL"
+                    entry     = float(row[3]) if row[3] else 0
+                    sl        = float(row[4]) if row[4] else 0
+                    tp1       = float(row[5]) if row[5] else 0
+                    tp2       = float(row[6]) if row[6] else 0
+                    qty       = int(row[10]) if row[10] else 1
                     if name and direction and entry:
                         active_trades[name] = {
                             "direction": direction,
