@@ -683,12 +683,13 @@ def run_scan():
     now_str = now_ist().strftime("%Y-%m-%d %H:%M:%S")
     now     = now_ist()
 
-    # Skip first 5 minutes — low win rate at open (33%)
-    open_time   = now.replace(hour=9,  minute=20, second=0, microsecond=0)
+    # Skip 9:15-10:00 AM — 64% win rate after 10 AM vs 36% before!
+    open_time   = now.replace(hour=10, minute=0,  second=0, microsecond=0)
     market_open = now.replace(hour=9,  minute=15, second=0, microsecond=0)
     cutoff_time = now.replace(hour=15, minute=0,  second=0, microsecond=0)
     if market_open <= now < open_time and now.weekday() < 5:
-        print(f"[{now_str}] ⏸️  Waiting 5 min after open...")
+        check_active_trades()  # still monitor trades placed before
+        print(f"[{now_str}] ⏸️  Waiting until 10:00 AM...")
         return
     # After 3:00 PM — no new signals, just monitor and close
     if now >= cutoff_time and now.weekday() < 5:
