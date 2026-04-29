@@ -160,14 +160,14 @@ def log_to_sheet(sig: dict):
                 "Date", "Time", "Stock",
                 "Entry", "SL", "TP1", "TP2", "RR",
                 "Score", "ADX", "Qty",
-                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)", "Chart"
             ])
         elif existing[0][0] != "Date":
             sheet.insert_row([
                 "Date", "Time", "Stock",
                 "Entry", "SL", "TP1", "TP2", "RR",
                 "Score", "ADX", "Qty",
-                "TP Hit", "SL Hit", "Result", "P&L (Rs)"
+                "TP Hit", "SL Hit", "Result", "P&L (Rs)", "Chart"
             ], 1)
 
         now = now_ist()
@@ -180,6 +180,7 @@ def log_to_sheet(sig: dict):
         # Stock name with BUY/SELL indicator
         stock_name = sig["name"] + (" 🟢" if sig["direction"] == "BUY" else " 🔴")
 
+        tv_link = f"https://www.tradingview.com/chart/?symbol=NSE%3A{sig['name']}"
         row = [
             now.strftime("%d-%b-%Y"),
             now.strftime("%H:%M:%S"),
@@ -196,6 +197,7 @@ def log_to_sheet(sig: dict):
             "",      # SL Hit
             "OPEN",  # Result
             "",      # P&L
+            tv_link, # Chart link
         ]
         sheet.append_row(row)
         sig["sheet_row"] = len(sheet.get_all_values())
@@ -407,14 +409,21 @@ def scan_stock(name: str, ticker: str):
             direction  = "BUY"
             last_signal_state[name] = 1
 
-        # SELL signals DISABLED — BUY only strategy (65% win rate vs 18% for SELL)
+        # SELL: crossunder + score >= 6 + last signal was not already SELL
+        elif sell_cross and bear >= DIRECT_ENTRY_SCORE and last_state >= 0:
+            entry_type = "DIRECT"
+            direction  = "SELL"
+            last_signal_state[name] = -1
 
         # WATCH PULLBACK: crossover + score == 5 + last was not BUY
         elif buy_cross and bull == PULLBACK_SCORE and last_state <= 0:
             entry_type = "WATCH_PULLBACK"
             direction  = "BUY"
 
-        # WATCH PULLBACK SELL: DISABLED
+        # WATCH PULLBACK: crossunder + score == 5 + last was not SELL
+        elif sell_cross and bear == PULLBACK_SCORE and last_state >= 0:
+            entry_type = "WATCH_PULLBACK"
+            direction  = "SELL"
 
         # PULLBACK CONFIRMED
         elif name in pullback_waiting:
@@ -426,8 +435,13 @@ def scan_stock(name: str, ticker: str):
                 bull_pct   = pw["pct"]
                 bias       = pw["bias"]
                 last_signal_state[name] = 1
-            # SELL pullback disabled
-            # elif pw["direction"] == "SELL": DISABLED
+            elif pw["direction"] == "SELL" and sell_pullback:
+                entry_type = "PULLBACK"
+                direction  = "SELL"
+                bear       = pw["score"]
+                bear_pct   = pw["pct"]
+                bias       = pw["bias"]
+                last_signal_state[name] = -1
 
         if entry_type is None:
             return None
